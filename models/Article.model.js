@@ -41,11 +41,6 @@ const articleSchema = new mongoose.Schema({
     required: [true, 'Автор обязателен']
   },
   
-  featuredImage: {
-    type: String,
-    required: [true, 'Главное изображение обязательно']
-  },
-  
   tags: [{
     type: String,
     trim: true,

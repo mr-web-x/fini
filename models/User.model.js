@@ -8,60 +8,56 @@ const userSchema = new mongoose.Schema({
     lowercase: true,
     trim: true
   },
-  
+
   googleId: {
     type: String,
     required: true,
     unique: true
   },
-  
-  displayName: {
+
+  firstName: {
     type: String,
-    required: [true, 'Имя обязательно'],
     trim: true,
-    maxlength: [100, 'Имя может содержать максимум 100 символов']
+    maxlength: [50, 'Имя может содержать максимум 50 символов'],
+    default: ''
   },
-  
+
+  lastName: {
+    type: String,
+    trim: true,
+    maxlength: [50, 'Фамилия может содержать максимум 50 символов'],
+    default: ''
+  },
+
   avatar: {
     type: String,
     default: ''
   },
-  
+
   role: {
     type: String,
     enum: ['user', 'author', 'admin'],
     default: 'user'
   },
-  
+
   // Для авторов (author и admin)
   bio: {
     type: String,
     maxlength: [500, 'Биография может содержать максимум 500 символов'],
     default: ''
   },
-  
+
   position: {
     type: String,
     maxlength: [100, 'Должность может содержать максимум 100 символов'],
     default: ''
   },
-  
-  socialLinks: {
-    linkedin: {
-      type: String,
-      default: ''
-    },
-    twitter: {
-      type: String,
-      default: ''
-    }
-  },
-  
+
   showInAuthorsList: {
     type: Boolean,
     default: true
   },
-  
+
   // Блокировка
   isBlocked: {
     status: {
@@ -82,27 +78,7 @@ const userSchema = new mongoose.Schema({
       default: null
     }
   },
-  
-  // Настройки уведомлений
-  notifications: {
-    emailOnReply: {
-      type: Boolean,
-      default: true
-    },
-    emailNewsletter: {
-      type: Boolean,
-      default: true
-    },
-    emailOnApproval: {
-      type: Boolean,
-      default: true
-    },
-    emailOnRejection: {
-      type: Boolean,
-      default: true
-    }
-  },
-  
+
   lastLogin: {
     type: Date,
     default: Date.now
