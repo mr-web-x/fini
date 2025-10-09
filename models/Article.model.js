@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const articleSchema = new mongoose.Schema({
   title: {
@@ -7,7 +7,7 @@ const articleSchema = new mongoose.Schema({
     trim: true,
     maxlength: [200, 'Заголовок может содержать максимум 200 символов']
   },
-  
+
   slug: {
     type: String,
     required: [true, 'Slug обязателен'],
@@ -15,7 +15,7 @@ const articleSchema = new mongoose.Schema({
     lowercase: true,
     trim: true
   },
-  
+
   excerpt: {
     type: String,
     required: [true, 'Краткое описание обязательно'],
@@ -23,30 +23,30 @@ const articleSchema = new mongoose.Schema({
     minlength: [150, 'Описание должно содержать минимум 150 символов'],
     maxlength: [200, 'Описание может содержать максимум 200 символов']
   },
-  
+
   content: {
     type: String,
     required: [true, 'Содержимое статьи обязательно']
   },
-  
+
   category: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Category',
     required: [true, 'Категория обязательна']
   },
-  
+
   author: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     required: [true, 'Автор обязателен']
   },
-  
+
   tags: [{
     type: String,
     trim: true,
     lowercase: true
   }],
-  
+
   // SEO настройки
   seo: {
     metaTitle: {
@@ -60,41 +60,41 @@ const articleSchema = new mongoose.Schema({
       default: ''
     }
   },
-  
+
   // Система статусов
   status: {
     type: String,
     enum: ['draft', 'pending', 'published', 'rejected'],
     default: 'draft'
   },
-  
+
   // Для rejected статуса
   rejectionReason: {
     type: String,
     default: ''
   },
-  
+
   rejectedBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
   },
-  
+
   rejectedAt: {
     type: Date
   },
-  
+
   // Статистика
   views: {
     type: Number,
     default: 0,
     min: 0
   },
-  
+
   // Даты
   publishedAt: {
     type: Date
   },
-  
+
   submittedAt: {
     type: Date
   }
@@ -112,10 +112,10 @@ articleSchema.index({ views: -1 });
 articleSchema.index({ createdAt: -1 });
 
 // Индекс полнотекстового поиска
-articleSchema.index({ 
-  title: 'text', 
-  excerpt: 'text', 
-  content: 'text' 
+articleSchema.index({
+  title: 'text',
+  excerpt: 'text',
+  content: 'text'
 });
 
-module.exports = mongoose.model('Article', articleSchema);
+export default mongoose.model('Article', articleSchema);

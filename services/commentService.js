@@ -1,6 +1,6 @@
-const Comment = require('../models/Comment');
-const Article = require('../models/Article');
-const User = require('../models/User');
+import Comment from '../models/Comment.js';
+import Article from '../models/Article.js';
+import User from '../models/User.js';
 
 class CommentService {
 
@@ -548,4 +548,4 @@ class CommentService {
   }
 }
 
-module.exports = new CommentService();
+export default new CommentService();

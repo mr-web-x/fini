@@ -1,6 +1,6 @@
-const Article = require('../models/Article');
-const User = require('../models/User');
-const Category = require('../models/Category');
+import Article from "../models/Article.model"
+import User from "../models/User.model"
+import Category from "../models/Category.model"
 
 class ArticleService {
 
@@ -627,4 +627,4 @@ class ArticleService {
   }
 }
 
-module.exports = new ArticleService();
+export default new ArticleService()

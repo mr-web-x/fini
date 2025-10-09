@@ -1,4 +1,5 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
+import EncryptableService from '../services/encryptableService';
 
 const userSchema = new mongoose.Schema({
   email: {
@@ -93,4 +94,11 @@ userSchema.index({ googleId: 1 });
 userSchema.index({ role: 1 });
 userSchema.index({ 'isBlocked.status': 1 });
 
-module.exports = mongoose.model('User', userSchema);
+EncryptableService.applyEncryption(userSchema, [
+  "email",
+  "firstName",
+  "lastName",
+  "bio"
+]);
+
+export default mongoose.model('User', userSchema);

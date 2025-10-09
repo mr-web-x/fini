@@ -1,6 +1,7 @@
-const jwt = require('jsonwebtoken');
-const { OAuth2Client } = require('google-auth-library');
-const User = require('../models/User');
+import jwt from 'jsonwebtoken';
+import { OAuth2Client } from 'google-auth-library';
+import User from '../models/User.js';
+import cryptoService from './cryptoService.js';
 
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
@@ -86,6 +87,9 @@ class AuthService {
         console.log(`Новый пользователь создан: ${user.email}`);
       }
 
+      // Дешифруем данные перед отправкой на клиент
+      await cryptoService.smartDecrypt(user);
+
       // Генерируем JWT токен
       const token = this.generateToken(user);
 
@@ -123,6 +127,9 @@ class AuthService {
       if (!statusCheck.valid) {
         throw new Error(statusCheck.message);
       }
+
+      // Дешифруем данные перед возвратом
+      await cryptoService.smartDecrypt(user);
 
       return user;
 
@@ -239,6 +246,9 @@ class AuthService {
         throw new Error('Пользователь не найден');
       }
 
+      // Дешифруем данные перед отправкой на клиент
+      await cryptoService.smartDecrypt(user);
+
       return this.formatUserResponse(user);
 
     } catch (error) {
@@ -274,6 +284,9 @@ class AuthService {
       await user.save();
 
       console.log(`Профиль обновлен: ${user.email}`);
+
+      // Дешифруем данные перед отправкой на клиент
+      await cryptoService.smartDecrypt(user);
 
       return this.formatUserResponse(user);
 
@@ -344,4 +357,4 @@ class AuthService {
   }
 }
 
-module.exports = new AuthService();
+export default new AuthService();

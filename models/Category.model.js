@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const categorySchema = new mongoose.Schema({
   name: {
@@ -8,7 +8,7 @@ const categorySchema = new mongoose.Schema({
     unique: true,
     maxlength: [50, 'Название может содержать максимум 50 символов']
   },
-  
+
   slug: {
     type: String,
     required: true,
@@ -16,13 +16,13 @@ const categorySchema = new mongoose.Schema({
     lowercase: true,
     trim: true
   },
-  
+
   description: {
     type: String,
     required: [true, 'Описание категории обязательно'],
     maxlength: [500, 'Описание может содержать максимум 500 символов']
   },
-  
+
   seo: {
     metaTitle: {
       type: String,
@@ -35,7 +35,7 @@ const categorySchema = new mongoose.Schema({
       default: ''
     }
   },
-  
+
   order: {
     type: Number,
     default: 0
@@ -48,4 +48,4 @@ const categorySchema = new mongoose.Schema({
 categorySchema.index({ slug: 1 });
 categorySchema.index({ order: 1 });
 
-module.exports = mongoose.model('Category', categorySchema);
+export default mongoose.model('Category', categorySchema);
