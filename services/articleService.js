@@ -44,7 +44,7 @@ class ArticleService {
 
       // Создаем статью со статусом draft
       const article = await Article.create({
-        ...articleData,
+        ...articleData,  
         author: authorId,
         status: 'draft'
       });
@@ -199,17 +199,19 @@ class ArticleService {
 
       const user = await User.findById(userId);
 
+      if (!user) {
+        throw new Error('Статья не найдена');
+      }
+
       // КРИТИЧНО: опубликованную статью может удалить только админ
-      if (article.status === 'published') {
-        if (user.role !== 'admin') {
-          throw new Error('Опубликованные статьи может удалять только администратор');
-        }
+      if (article.status === 'published' && user.role !== 'admin') {
+        throw new Error('Опубликованные статьи может удалять только администратор');
       }
 
       // Для draft/pending/rejected - проверяем права
       if (article.status !== 'published') {
-        const isAuthor = article.author.toString() === userId;
-        const isAdmin = user.role === 'admin';
+        const isAuthor = article.author.toString() === userId;   //   TRUE
+        const isAdmin = user.role === 'admin';      // FALSE
 
         if (!isAuthor && !isAdmin) {
           throw new Error('У вас нет прав на удаление этой статьи');

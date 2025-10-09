@@ -1,5 +1,5 @@
 import mongoose from 'mongoose';
-import EncryptableService from '../services/encryptableService';
+import EncryptableService from '../services/encryptableService.js';
 
 const userSchema = new mongoose.Schema({
   email: {
