@@ -1,6 +1,7 @@
 import Article from "../models/Article.model.js"
 import User from "../models/User.model.js"
 import Category from "../models/Category.model.js"
+import { writeLog } from "../middlewares/logger.js";
 
 class ArticleService {
 
@@ -16,6 +17,8 @@ class ArticleService {
     try {
       // Проверяем, что автор существует и имеет права
       const author = await User.findById(authorId);
+
+      // writeLog("INFO", "")
 
       if (!author) {
         throw new Error('Автор не найден');
@@ -44,7 +47,7 @@ class ArticleService {
 
       // Создаем статью со статусом draft
       const article = await Article.create({
-        ...articleData,  
+        ...articleData,
         author: authorId,
         status: 'draft'
       });
@@ -66,27 +69,18 @@ class ArticleService {
    * @returns {Object} - статья
    */
   async getArticleById(articleId, populate = true) {
-    try {
-      let query = Article.findById(articleId);
+    const article = await Article.findById(articleId)
+      .populate('author', 'firstName lastName email avatar bio position role')
+      .populate('category', 'name slug description');
 
-      if (populate) {
-        query = query
-          .populate('author', 'firstName lastName email avatar bio position role')
-          .populate('category', 'name slug description');
-      }
-
-      const article = await query;
-
-      if (!article) {
-        throw new Error('Статья не найдена');
-      }
-
-      return article;
-
-    } catch (error) {
-      console.error('Ошибка получения статьи:', error);
-      throw error;
+    if (!article) {
+      throw new Error('Статья не найдена');
     }
+
+    // ✅ Расшифровываем автора
+    await cryptoService.smartDecrypt(article);
+
+    return article;
   }
 
   /**
@@ -189,65 +183,65 @@ class ArticleService {
    * @param {string} userId - ID пользователя
    * @returns {Object} - результат удаления
    */
-async deleteArticle(articleId, userId) {
-  try {
-    // ✅ 1. Находим статью
-    const article = await Article.findById(articleId);
+  async deleteArticle(articleId, userId) {
+    try {
+      // ✅ 1. Находим статью
+      const article = await Article.findById(articleId);
 
-    if (!article) {
-      throw new Error('Статья не найдена');
-    }
-
-    // ✅ 2. Находим пользователя
-    const user = await User.findById(userId);
-
-    if (!user) {
-      throw new Error('Пользователь не найден'); // ← исправлено сообщение
-    }
-
-    // ✅ 3. ДОБАВЛЕНО: Логирование для отладки
-    console.log('[DELETE] Проверка прав:', {
-      articleId,
-      articleStatus: article.status,
-      articleAuthor: article.author.toString(),
-      userId,
-      userRole: user.role,
-      isAuthor: article.author.toString() === userId,
-      isAdmin: user.role === 'admin'
-    });
-
-    // ✅ 4. Определяем права
-    const isAuthor = article.author.toString() === userId;
-    const isAdmin = user.role === 'admin';
-
-    // ✅ 5. УПРОЩЕННАЯ ЛОГИКА: Проверка прав в зависимости от статуса
-    if (article.status === 'published') {
-      // Опубликованную статью может удалить ТОЛЬКО админ
-      if (!isAdmin) {
-        throw new Error('Опубликованные статьи может удалять только администратор');
+      if (!article) {
+        throw new Error('Статья не найдена');
       }
-    } else {
-      // draft/pending/rejected может удалить автор ИЛИ админ
-      if (!isAuthor && !isAdmin) {
-        throw new Error('У вас нет прав на удаление этой статьи');
+
+      // ✅ 2. Находим пользователя
+      const user = await User.findById(userId);
+
+      if (!user) {
+        throw new Error('Пользователь не найден'); // ← исправлено сообщение
       }
+
+      // ✅ 3. ДОБАВЛЕНО: Логирование для отладки
+      console.log('[DELETE] Проверка прав:', {
+        articleId,
+        articleStatus: article.status,
+        articleAuthor: article.author.toString(),
+        userId,
+        userRole: user.role,
+        isAuthor: article.author.toString() === userId,
+        isAdmin: user.role === 'admin'
+      });
+
+      // ✅ 4. Определяем права
+      const isAuthor = article.author.toString() === userId;
+      const isAdmin = user.role === 'admin';
+
+      // ✅ 5. УПРОЩЕННАЯ ЛОГИКА: Проверка прав в зависимости от статуса
+      if (article.status === 'published') {
+        // Опубликованную статью может удалить ТОЛЬКО админ
+        if (!isAdmin) {
+          throw new Error('Опубликованные статьи может удалять только администратор');
+        }
+      } else {
+        // draft/pending/rejected может удалить автор ИЛИ админ
+        if (!isAuthor && !isAdmin) {
+          throw new Error('У вас нет прав на удаление этой статьи');
+        }
+      }
+
+      // ✅ 6. Удаляем статью
+      await Article.findByIdAndDelete(articleId);
+
+      console.log(`✅ Статья удалена: ${article.title} (статус: ${article.status})`);
+
+      return {
+        success: true,
+        message: 'Статья успешно удалена'
+      };
+
+    } catch (error) {
+      console.error('❌ Ошибка удаления статьи:', error.message);
+      throw error;
     }
-
-    // ✅ 6. Удаляем статью
-    await Article.findByIdAndDelete(articleId);
-
-    console.log(`✅ Статья удалена: ${article.title} (статус: ${article.status})`);
-
-    return {
-      success: true,
-      message: 'Статья успешно удалена'
-    };
-
-  } catch (error) {
-    console.error('❌ Ошибка удаления статьи:', error.message);
-    throw error;
   }
-}
 
   // ==================== WORKFLOW СТАТУСОВ ====================
 
