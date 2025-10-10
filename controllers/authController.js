@@ -1,21 +1,14 @@
+// ============================================
+// controllers/authController.js
+// ============================================
+
 import authService from '../services/authService.js';
 
 class AuthController {
 
-    /**
-     * POST /api/auth/google
-     * Вход или регистрация через Google OAuth
-     */
     async googleAuth(req, res) {
         try {
             const { token } = req.body;
-
-            if (!token) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'Google токен обязателен'
-                });
-            }
 
             const result = await authService.googleAuth(token);
 
@@ -26,8 +19,6 @@ class AuthController {
             });
 
         } catch (error) {
-            console.error('Ошибка в googleAuth:', error);
-
             return res.status(401).json({
                 success: false,
                 message: error.message || 'Ошибка авторизации'
@@ -35,25 +26,19 @@ class AuthController {
         }
     }
 
-    /**
-     * GET /api/auth/me
-     * Получение информации о текущем пользователе
-     */
     async getMe(req, res) {
         try {
-            // req.user устанавливается в auth middleware
             const userId = req.user.userId;
 
             const user = await authService.getUserInfo(userId);
 
             return res.status(200).json({
                 success: true,
+                message: 'Данные пользователя получены',
                 data: user
             });
 
         } catch (error) {
-            console.error('Ошибка в getMe:', error);
-
             return res.status(400).json({
                 success: false,
                 message: error.message || 'Ошибка получения данных пользователя'
@@ -61,34 +46,19 @@ class AuthController {
         }
     }
 
-    /**
-     * POST /api/auth/refresh
-     * Обновление JWT токена
-     */
     async refreshToken(req, res) {
         try {
             const { token } = req.body;
-
-            if (!token) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'Токен обязателен'
-                });
-            }
 
             const newToken = await authService.refreshToken(token);
 
             return res.status(200).json({
                 success: true,
                 message: 'Токен обновлен',
-                data: {
-                    token: newToken
-                }
+                data: { token: newToken }
             });
 
         } catch (error) {
-            console.error('Ошибка в refreshToken:', error);
-
             return res.status(401).json({
                 success: false,
                 message: error.message || 'Ошибка обновления токена'
@@ -96,10 +66,6 @@ class AuthController {
         }
     }
 
-    /**
-     * PUT /api/auth/profile
-     * Обновление профиля текущего пользователя
-     */
     async updateProfile(req, res) {
         try {
             const userId = req.user.userId;
@@ -114,8 +80,6 @@ class AuthController {
             });
 
         } catch (error) {
-            console.error('Ошибка в updateProfile:', error);
-
             return res.status(400).json({
                 success: false,
                 message: error.message || 'Ошибка обновления профиля'
@@ -123,23 +87,14 @@ class AuthController {
         }
     }
 
-    /**
-     * POST /api/auth/logout
-     * Выход из системы (на клиенте удаляется токен)
-     */
     async logout(req, res) {
         try {
-            // Logout на стороне клиента (удаление токена)
-            // На сервере ничего не делаем, т.к. JWT stateless
-
             return res.status(200).json({
                 success: true,
                 message: 'Выход выполнен'
             });
 
         } catch (error) {
-            console.error('Ошибка в logout:', error);
-
             return res.status(400).json({
                 success: false,
                 message: error.message || 'Ошибка выхода'

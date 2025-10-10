@@ -1,30 +1,18 @@
+// ============================================
+// controllers/articleController.js
+// ============================================
+
 import articleService from '../services/articleService.js';
 
 class ArticleController {
 
-    // ==================== CRUD ОПЕРАЦИИ ====================
-
-    /**
-     * POST /api/articles
-     * Создание новой статьи (draft)
-     */
     async createArticle(req, res) {
         try {
-            const authorId = req.user?.userId;
+            const authorId = req.user.userId;
             const articleData = req.body;
 
-            // Создаём статью через сервис
             const article = await articleService.createArticle(articleData, authorId);
 
-            // Проверяем, что статья создана корректно
-            if (!article || !article._id) {
-                return res.status(500).json({
-                    success: false,
-                    message: 'Не удалось создать статью. Попробуйте позже.'
-                });
-            }
-
-            // Успешный ответ
             return res.status(201).json({
                 success: true,
                 message: 'Статья успешно создана',
@@ -32,9 +20,6 @@ class ArticleController {
             });
 
         } catch (error) {
-            console.error('Ошибка в createArticle:', error);
-
-            // Возврат ошибки
             return res.status(400).json({
                 success: false,
                 message: error.message || 'Ошибка при создании статьи'
@@ -42,25 +27,19 @@ class ArticleController {
         }
     }
 
-
-    /**
-     * GET /api/articles/:id
-     * Получение статьи по ID
-     */
     async getArticleById(req, res) {
         try {
-            const { id } = req.params;  
+            const { id } = req.params;
 
             const article = await articleService.getArticleById(id);
 
             return res.status(200).json({
                 success: true,
+                message: 'Статья получена',
                 data: article
             });
 
         } catch (error) {
-            console.error('Ошибка в getArticleById:', error);
-
             return res.status(404).json({
                 success: false,
                 message: error.message || 'Статья не найдена'
@@ -68,10 +47,6 @@ class ArticleController {
         }
     }
 
-    /**
-     * GET /api/articles/slug/:slug
-     * Получение статьи по slug
-     */
     async getArticleBySlug(req, res) {
         try {
             const { slug } = req.params;
@@ -80,12 +55,11 @@ class ArticleController {
 
             return res.status(200).json({
                 success: true,
+                message: 'Статья получена',
                 data: article
             });
 
         } catch (error) {
-            console.error('Ошибка в getArticleBySlug:', error);
-
             return res.status(404).json({
                 success: false,
                 message: error.message || 'Статья не найдена'
@@ -93,10 +67,6 @@ class ArticleController {
         }
     }
 
-    /**
-     * PUT /api/articles/:id
-     * Обновление статьи
-     */
     async updateArticle(req, res) {
         try {
             const { id } = req.params;
@@ -112,8 +82,6 @@ class ArticleController {
             });
 
         } catch (error) {
-            console.error('Ошибка в updateArticle:', error);
-
             return res.status(400).json({
                 success: false,
                 message: error.message || 'Ошибка обновления статьи'
@@ -121,10 +89,6 @@ class ArticleController {
         }
     }
 
-    /**
-     * DELETE /api/articles/:id
-     * Удаление статьи
-     */
     async deleteArticle(req, res) {
         try {
             const { id } = req.params;
@@ -138,8 +102,6 @@ class ArticleController {
             });
 
         } catch (error) {
-            console.error('Ошибка в deleteArticle:', error);
-
             return res.status(400).json({
                 success: false,
                 message: error.message || 'Ошибка удаления статьи'
@@ -147,12 +109,6 @@ class ArticleController {
         }
     }
 
-    // ==================== WORKFLOW СТАТУСОВ ====================
-
-    /**
-     * POST /api/articles/:id/submit
-     * Отправка статьи на модерацию (draft → pending)
-     */
     async submitForReview(req, res) {
         try {
             const { id } = req.params;
@@ -167,8 +123,6 @@ class ArticleController {
             });
 
         } catch (error) {
-            console.error('Ошибка в submitForReview:', error);
-
             return res.status(400).json({
                 success: false,
                 message: error.message || 'Ошибка отправки на модерацию'
@@ -176,10 +130,6 @@ class ArticleController {
         }
     }
 
-    /**
-     * POST /api/articles/:id/approve
-     * Одобрение статьи админом (pending → published)
-     */
     async approveArticle(req, res) {
         try {
             const { id } = req.params;
@@ -194,8 +144,6 @@ class ArticleController {
             });
 
         } catch (error) {
-            console.error('Ошибка в approveArticle:', error);
-
             return res.status(400).json({
                 success: false,
                 message: error.message || 'Ошибка одобрения статьи'
@@ -203,22 +151,11 @@ class ArticleController {
         }
     }
 
-    /**
-     * POST /api/articles/:id/reject
-     * Отклонение статьи админом (pending → rejected)
-     */
     async rejectArticle(req, res) {
         try {
             const { id } = req.params;
             const adminId = req.user.userId;
             const { reason } = req.body;
-
-            if (!reason) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'Причина отклонения обязательна'
-                });
-            }
 
             const article = await articleService.rejectArticle(id, adminId, reason);
 
@@ -229,8 +166,6 @@ class ArticleController {
             });
 
         } catch (error) {
-            console.error('Ошибка в rejectArticle:', error);
-
             return res.status(400).json({
                 success: false,
                 message: error.message || 'Ошибка отклонения статьи'
@@ -238,12 +173,6 @@ class ArticleController {
         }
     }
 
-    // ==================== ПОЛУЧЕНИЕ СПИСКОВ ====================
-
-    /**
-     * GET /api/articles/published
-     * Получение всех опубликованных статей
-     */
     async getPublishedArticles(req, res) {
         try {
             const { limit, skip, sortBy, sortOrder } = req.query;
@@ -259,12 +188,11 @@ class ArticleController {
 
             return res.status(200).json({
                 success: true,
+                message: 'Статьи получены',
                 data: result
             });
 
         } catch (error) {
-            console.error('Ошибка в getPublishedArticles:', error);
-
             return res.status(400).json({
                 success: false,
                 message: error.message || 'Ошибка получения статей'
@@ -272,10 +200,6 @@ class ArticleController {
         }
     }
 
-    /**
-     * GET /api/articles/category/:categoryId
-     * Получение статей в категории
-     */
     async getArticlesByCategory(req, res) {
         try {
             const { categoryId } = req.params;
@@ -292,12 +216,11 @@ class ArticleController {
 
             return res.status(200).json({
                 success: true,
+                message: 'Статьи категории получены',
                 data: result
             });
 
         } catch (error) {
-            console.error('Ошибка в getArticlesByCategory:', error);
-
             return res.status(400).json({
                 success: false,
                 message: error.message || 'Ошибка получения статей категории'
@@ -305,10 +228,6 @@ class ArticleController {
         }
     }
 
-    /**
-     * GET /api/articles/author/:authorId
-     * Получение статей автора
-     */
     async getArticlesByAuthor(req, res) {
         try {
             const { authorId } = req.params;
@@ -324,12 +243,11 @@ class ArticleController {
 
             return res.status(200).json({
                 success: true,
+                message: 'Статьи автора получены',
                 data: result
             });
 
         } catch (error) {
-            console.error('Ошибка в getArticlesByAuthor:', error);
-
             return res.status(400).json({
                 success: false,
                 message: error.message || 'Ошибка получения статей автора'
@@ -337,22 +255,17 @@ class ArticleController {
         }
     }
 
-    /**
-     * GET /api/articles/pending
-     * Получение статей на модерации (для админа)
-     */
     async getPendingArticles(req, res) {
         try {
             const articles = await articleService.getPendingArticles();
 
             return res.status(200).json({
                 success: true,
+                message: 'Статьи на модерации получены',
                 data: articles
             });
 
         } catch (error) {
-            console.error('Ошибка в getPendingArticles:', error);
-
             return res.status(400).json({
                 success: false,
                 message: error.message || 'Ошибка получения статей на модерации'
@@ -360,10 +273,6 @@ class ArticleController {
         }
     }
 
-    /**
-     * GET /api/articles/popular
-     * Популярные статьи
-     */
     async getPopularArticles(req, res) {
         try {
             const { limit, days } = req.query;
@@ -375,12 +284,11 @@ class ArticleController {
 
             return res.status(200).json({
                 success: true,
+                message: 'Популярные статьи получены',
                 data: articles
             });
 
         } catch (error) {
-            console.error('Ошибка в getPopularArticles:', error);
-
             return res.status(400).json({
                 success: false,
                 message: error.message || 'Ошибка получения популярных статей'
@@ -388,10 +296,6 @@ class ArticleController {
         }
     }
 
-    /**
-     * GET /api/articles/search
-     * Поиск статей
-     */
     async searchArticles(req, res) {
         try {
             const { q, limit, skip } = req.query;
@@ -412,12 +316,11 @@ class ArticleController {
 
             return res.status(200).json({
                 success: true,
+                message: 'Результаты поиска получены',
                 data: articles
             });
 
         } catch (error) {
-            console.error('Ошибка в searchArticles:', error);
-
             return res.status(400).json({
                 success: false,
                 message: error.message || 'Ошибка поиска статей'
@@ -425,12 +328,6 @@ class ArticleController {
         }
     }
 
-    // ==================== СТАТИСТИКА ====================
-
-    /**
-     * POST /api/articles/:id/view
-     * Увеличение счетчика просмотров
-     */
     async incrementViews(req, res) {
         try {
             const { id } = req.params;
@@ -443,8 +340,6 @@ class ArticleController {
             });
 
         } catch (error) {
-            console.error('Ошибка в incrementViews:', error);
-
             return res.status(400).json({
                 success: false,
                 message: error.message || 'Ошибка увеличения просмотров'
@@ -452,22 +347,17 @@ class ArticleController {
         }
     }
 
-    /**
-     * GET /api/articles/stats
-     * Получение статистики статей
-     */
     async getStatistics(req, res) {
         try {
             const stats = await articleService.getStatistics();
 
             return res.status(200).json({
                 success: true,
+                message: 'Статистика получена',
                 data: stats
             });
 
         } catch (error) {
-            console.error('Ошибка в getStatistics:', error);
-
             return res.status(400).json({
                 success: false,
                 message: error.message || 'Ошибка получения статистики'

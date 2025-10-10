@@ -1,39 +1,35 @@
+// ============================================
+// controllers/categoryController.js
+// ============================================
+
 import Category from '../models/Category.model.js';
+import Article from '../models/Article.model.js';
 
 class CategoryController {
 
-    // ==================== CRUD ОПЕРАЦИИ ====================
-
-    /**
-     * Получение всех категорий
-     * GET /api/categories
-     */
     async getAllCategories(req, res) {
         try {
             const categories = await Category.find()
                 .sort({ order: 1, name: 1 })
                 .select('-__v');
 
-            res.status(200).json({
+            return res.status(200).json({
                 success: true,
-                data: categories,
-                count: categories.length
+                message: 'Категории получены',
+                data: {
+                    categories,
+                    count: categories.length
+                }
             });
 
         } catch (error) {
-            console.error('Ошибка получения категорий:', error);
-            res.status(500).json({
+            return res.status(500).json({
                 success: false,
-                message: 'Ошибка при получении категорий',
-                error: error.message
+                message: error.message || 'Ошибка при получении категорий'
             });
         }
     }
 
-    /**
-     * Получение категории по ID
-     * GET /api/categories/:id
-     */
     async getCategoryById(req, res) {
         try {
             const { id } = req.params;
@@ -47,25 +43,20 @@ class CategoryController {
                 });
             }
 
-            res.status(200).json({
+            return res.status(200).json({
                 success: true,
+                message: 'Категория получена',
                 data: category
             });
 
         } catch (error) {
-            console.error('Ошибка получения категории:', error);
-            res.status(500).json({
+            return res.status(500).json({
                 success: false,
-                message: 'Ошибка при получении категории',
-                error: error.message
+                message: error.message || 'Ошибка при получении категории'
             });
         }
     }
 
-    /**
-     * Получение категории по slug
-     * GET /api/categories/slug/:slug
-     */
     async getCategoryBySlug(req, res) {
         try {
             const { slug } = req.params;
@@ -79,25 +70,20 @@ class CategoryController {
                 });
             }
 
-            res.status(200).json({
+            return res.status(200).json({
                 success: true,
+                message: 'Категория получена',
                 data: category
             });
 
         } catch (error) {
-            console.error('Ошибка получения категории по slug:', error);
-            res.status(500).json({
+            return res.status(500).json({
                 success: false,
-                message: 'Ошибка при получении категории',
-                error: error.message
+                message: error.message || 'Ошибка при получении категории'
             });
         }
     }
 
-    /**
-     * Создание категории (только админ)
-     * POST /api/categories
-     */
     async createCategory(req, res) {
         try {
             const { name, slug, description, seo, order } = req.body;
@@ -107,14 +93,6 @@ class CategoryController {
                 return res.status(403).json({
                     success: false,
                     message: 'Только администратор может создавать категории'
-                });
-            }
-
-            // Проверка обязательных полей
-            if (!name || !slug || !description) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'Название, slug и описание обязательны'
                 });
             }
 
@@ -136,15 +114,13 @@ class CategoryController {
                 order: order || 0
             });
 
-            res.status(201).json({
+            return res.status(201).json({
                 success: true,
                 message: 'Категория успешно создана',
                 data: category
             });
 
         } catch (error) {
-            console.error('Ошибка создания категории:', error);
-
             if (error.code === 11000) {
                 return res.status(400).json({
                     success: false,
@@ -152,18 +128,13 @@ class CategoryController {
                 });
             }
 
-            res.status(500).json({
+            return res.status(500).json({
                 success: false,
-                message: 'Ошибка при создании категории',
-                error: error.message
+                message: error.message || 'Ошибка при создании категории'
             });
         }
     }
 
-    /**
-     * Обновление категории (только админ)
-     * PUT /api/categories/:id
-     */
     async updateCategory(req, res) {
         try {
             const { id } = req.params;
@@ -210,26 +181,20 @@ class CategoryController {
 
             await category.save();
 
-            res.status(200).json({
+            return res.status(200).json({
                 success: true,
                 message: 'Категория успешно обновлена',
                 data: category
             });
 
         } catch (error) {
-            console.error('Ошибка обновления категории:', error);
-            res.status(500).json({
+            return res.status(500).json({
                 success: false,
-                message: 'Ошибка при обновлении категории',
-                error: error.message
+                message: error.message || 'Ошибка при обновлении категории'
             });
         }
     }
 
-    /**
-     * Удаление категории (только админ)
-     * DELETE /api/categories/:id
-     */
     async deleteCategory(req, res) {
         try {
             const { id } = req.params;
@@ -252,7 +217,6 @@ class CategoryController {
             }
 
             // Проверка, есть ли статьи в этой категории
-            const Article = require('../models/Article.model.js').default;
             const articlesCount = await Article.countDocuments({ category: id });
 
             if (articlesCount > 0) {
@@ -264,27 +228,19 @@ class CategoryController {
 
             await Category.findByIdAndDelete(id);
 
-            res.status(200).json({
+            return res.status(200).json({
                 success: true,
                 message: 'Категория успешно удалена'
             });
 
         } catch (error) {
-            console.error('Ошибка удаления категории:', error);
-            res.status(500).json({
+            return res.status(500).json({
                 success: false,
-                message: 'Ошибка при удалении категории',
-                error: error.message
+                message: error.message || 'Ошибка при удалении категории'
             });
         }
     }
 
-    // ==================== СТАТИСТИКА ====================
-
-    /**
-     * Получение категории со статистикой статей
-     * GET /api/categories/:id/stats
-     */
     async getCategoryStats(req, res) {
         try {
             const { id } = req.params;
@@ -298,8 +254,6 @@ class CategoryController {
                 });
             }
 
-            const Article = require('../models/Article.model.js').default;
-
             // Статистика статей в категории
             const totalArticles = await Article.countDocuments({
                 category: id,
@@ -311,8 +265,9 @@ class CategoryController {
                 { $group: { _id: null, total: { $sum: '$views' } } }
             ]);
 
-            res.status(200).json({
+            return res.status(200).json({
                 success: true,
+                message: 'Статистика категории получена',
                 data: {
                     category,
                     stats: {
@@ -323,11 +278,9 @@ class CategoryController {
             });
 
         } catch (error) {
-            console.error('Ошибка получения статистики категории:', error);
-            res.status(500).json({
+            return res.status(500).json({
                 success: false,
-                message: 'Ошибка при получении статистики',
-                error: error.message
+                message: error.message || 'Ошибка при получении статистики'
             });
         }
     }
