@@ -214,23 +214,19 @@ class ArticleService {
       const isAuthor = article.author.toString() === userId;
       const isAdmin = user.role === 'admin';
 
-      // ✅ 5. УПРОЩЕННАЯ ЛОГИКА: Проверка прав в зависимости от статуса
-      if (article.status === 'published') {
-        // Опубликованную статью может удалить ТОЛЬКО админ
-        if (!isAdmin) {
-          throw new Error('Опубликованные статьи может удалять только администратор');
-        }
-      } else {
-        // draft/pending/rejected может удалить автор ИЛИ админ
-        if (!isAuthor && !isAdmin) {
-          throw new Error('У вас нет прав на удаление этой статьи');
-        }
+      if (
+        !isAdmin && // не админ
+        (!isAuthor || (article.status !== 'draft' && article.status !== 'rejected')) // не автор или статус не подходит
+      ) {
+        return {
+          success: false,
+          message: 'Недостаточно прав для удаления статьи'
+        };
       }
 
-      // ✅ 6. Удаляем статью
-      await Article.findByIdAndDelete(articleId);
-
       console.log(`✅ Статья удалена: ${article.title} (статус: ${article.status})`);
+
+      await Article.findByIdAndDelete(articleId);
 
       return {
         success: true,

@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Google OAuth Test</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 50px;
+            background: #f9f9f9;
+            color: #333;
+        }
+
+        h1 {
+            color: #4a90e2;
+        }
+
+        button {
+            padding: 12px 24px;
+            font-size: 16px;
+            cursor: pointer;
+            border: none;
+            border-radius: 6px;
+            background-color: #4a90e2;
+            color: white;
+            transition: background 0.3s;
+        }
+
+        button:hover {
+            background-color: #357abd;
+        }
+
+        #result {
+            margin-top: 30px;
+        }
+
+        .response-box {
+            background: #1e1e1e;
+            color: #dcdcdc;
+            padding: 20px;
+            border-radius: 8px;
+            font-family: 'Courier New', Courier, monospace;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            max-height: 400px;
+            overflow-y: auto;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .response-box h3 {
+            margin-top: 0;
+            color: #ffcc00;
+        }
+
+        .response-box pre {
+            background: #2d2d2d;
+            padding: 15px;
+            border-radius: 6px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Google OAuth Test</h1>
+    <button id="loginBtn">Увійти через Google</button>
+
+    <div id="result"></div>
+
+    <script>
+        // Якщо ми потрапили на /auth/success
+        if (window.location.pathname === '/auth/success') {
+            const urlParams = new URLSearchParams(window.location.search);
+            const token = urlParams.get('token');
+
+            if (token) {
+                // Можна роздекодувати JWT на фронті або передати через postMessage у opener
+                // Якщо ти відкрив popup для авторизації:
+                if (window.opener) {
+                    window.opener.postMessage({ token }, window.location.origin);
+                    window.close();
+                } else {
+                    document.getElementById('result').innerText = `JWT Token: ${token}`;
+                }
+            } else {
+                document.getElementById('result').innerText = 'No token found in URL';
+            }
+        }
+    </script>
+
+
+    <script>
+        // Постав сюди свій бекенд
+        const AUTH_URL = 'http://localhost:5000/api/auth/google';
+
+        const loginBtn = document.getElementById('loginBtn');
+        const resultDiv = document.getElementById('result');
+
+        loginBtn.addEventListener('click', () => {
+            const width = 500, height = 600;
+            const left = (screen.width - width) / 2;
+            const top = (screen.height - height) / 2;
+
+            const authWindow = window.open(AUTH_URL, 'GoogleLogin', `width=${width},height=${height},top=${top},left=${left}`);
+
+            window.addEventListener('message', function handleMessage(event) {
+                const data = event.data;
+                if (data.user && data.token) {
+                    resultDiv.innerHTML = `
+                        <div class="response-box">
+                            <h3>Дані користувача:</h3>
+                            <pre>${JSON.stringify(data.user, null, 2)}</pre>
+                            <h3>JWT Token:</h3>
+                            <pre>${data.token}</pre>
+                        </div>
+                    `;
+                }
+                window.removeEventListener('message', handleMessage);
+            }, false);
+        });
+    </script>
+</body>
+
+</html>

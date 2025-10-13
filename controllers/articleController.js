@@ -5,7 +5,6 @@
 import articleService from '../services/articleService.js';
 
 class ArticleController {
-
     async createArticle(req, res) {
         try {
             const authorId = req.user.userId;
@@ -18,7 +17,6 @@ class ArticleController {
                 message: 'Статья успешно создана',
                 data: article
             });
-
         } catch (error) {
             return res.status(400).json({
                 success: false,
