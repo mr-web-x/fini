@@ -1,12 +1,15 @@
+// ============================================
+// services/authService.js
+// ============================================
+
 import jwt from 'jsonwebtoken';
 import { OAuth2Client } from 'google-auth-library';
-import User from '../models/User.js';
+import UserModel from '../models/User.model.js';
 import cryptoService from './cryptoService.js';
 
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 class AuthService {
-
   // ==================== GOOGLE OAUTH ====================
 
   /**
@@ -38,7 +41,6 @@ class AuthService {
         lastName: payload.family_name || '',
         avatar: payload.picture || ''
       };
-
     } catch (error) {
       console.error('Ошибка верификации Google токена:', error);
       throw new Error('Неверный Google токен');
@@ -56,10 +58,10 @@ class AuthService {
       const googleData = await this.verifyGoogleToken(googleToken);
 
       // Ищем существующего пользователя
-      let user = await User.findOne({ googleId: googleData.googleId });
+      let user = await UserModel.findOne({ googleId: googleData.googleId });
 
       if (user) {
-        // Пользователь существует - проверяем статус
+        // Проверяем статус
         const statusCheck = await this.validateUserStatus(user);
 
         if (!statusCheck.valid) {
@@ -71,16 +73,15 @@ class AuthService {
         await user.save();
 
         console.log(`Пользователь вошел: ${user.email}`);
-
       } else {
-        // Новый пользователь - создаем аккаунт
-        user = await User.create({
+        // Новый пользователь — создаём аккаунт
+        user = await UserModel.create({
           email: googleData.email,
           googleId: googleData.googleId,
           firstName: googleData.firstName,
           lastName: googleData.lastName,
           avatar: googleData.avatar,
-          role: 'user', // по умолчанию роль user
+          role: 'user',
           lastLogin: new Date()
         });
 
@@ -97,7 +98,6 @@ class AuthService {
         user: this.formatUserResponse(user),
         token
       };
-
     } catch (error) {
       console.error('Ошибка Google авторизации:', error);
       throw error;
@@ -111,28 +111,20 @@ class AuthService {
    */
   async getUserFromToken(token) {
     try {
-      // Верифицируем JWT
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-      // Ищем пользователя
-      const user = await User.findById(decoded.userId);
-
+      const user = await UserModel.findById(decoded.userId);
       if (!user) {
         throw new Error('Пользователь не найден');
       }
 
-      // Проверяем статус
       const statusCheck = await this.validateUserStatus(user);
-
       if (!statusCheck.valid) {
         throw new Error(statusCheck.message);
       }
 
-      // Дешифруем данные перед возвратом
       await cryptoService.smartDecrypt(user);
-
       return user;
-
     } catch (error) {
       if (error.name === 'TokenExpiredError') {
         throw new Error('Токен истек');
@@ -148,14 +140,10 @@ class AuthService {
 
   /**
    * Проверка статуса пользователя (блокировка)
-   * @param {Object} user - объект пользователя
-   * @returns {Object} - результат проверки
    */
   async validateUserStatus(user) {
     try {
-      // Проверка блокировки
       if (user.isBlocked.status) {
-        // Постоянная блокировка (без until)
         if (!user.isBlocked.until) {
           return {
             valid: false,
@@ -163,7 +151,6 @@ class AuthService {
           };
         }
 
-        // Временная блокировка
         if (user.isBlocked.until > new Date()) {
           const daysLeft = Math.ceil(
             (user.isBlocked.until - new Date()) / (1000 * 60 * 60 * 24)
@@ -175,7 +162,7 @@ class AuthService {
           };
         }
 
-        // Блокировка истекла - автоматически разблокируем
+        // Блокировка истекла — разблокируем
         user.isBlocked.status = false;
         user.isBlocked.until = null;
         user.isBlocked.reason = '';
@@ -184,7 +171,6 @@ class AuthService {
       }
 
       return { valid: true };
-
     } catch (error) {
       console.error('Ошибка валидации статуса пользователя:', error);
       return {
@@ -196,11 +182,6 @@ class AuthService {
 
   // ==================== JWT ТОКЕНЫ ====================
 
-  /**
-   * Генерация JWT токена
-   * @param {Object} user - объект пользователя
-   * @returns {string} - JWT токен
-   */
   generateToken(user) {
     const payload = {
       userId: user._id,
@@ -217,64 +198,47 @@ class AuthService {
     });
   }
 
-  /**
-   * Обновление JWT токена
-   * @param {string} oldToken - старый токен
-   * @returns {string} - новый токен
-   */
   async refreshToken(oldToken) {
     try {
       const user = await this.getUserFromToken(oldToken);
       return this.generateToken(user);
-    } catch (error) {
+    } catch {
       throw new Error('Не удалось обновить токен');
     }
   }
 
   // ==================== УПРАВЛЕНИЕ ПРОФИЛЕМ ====================
 
-  /**
-   * Получение информации о пользователе
-   * @param {string} userId - ID пользователя
-   * @returns {Object} - информация о пользователе
-   */
   async getUserInfo(userId) {
     try {
-      const user = await User.findById(userId).select('-__v');
-
+      const user = await UserModel.findById(userId).select('-__v');
       if (!user) {
         throw new Error('Пользователь не найден');
       }
 
-      // Дешифруем данные перед отправкой на клиент
       await cryptoService.smartDecrypt(user);
-
       return this.formatUserResponse(user);
-
     } catch (error) {
       console.error('Ошибка получения информации о пользователе:', error);
       throw error;
     }
   }
 
-  /**
-   * Обновление профиля пользователя
-   * @param {string} userId - ID пользователя
-   * @param {Object} updateData - данные для обновления
-   * @returns {Object} - обновленный пользователь
-   */
   async updateProfile(userId, updateData) {
     try {
-      const user = await User.findById(userId);
-
+      const user = await UserModel.findById(userId);
       if (!user) {
         throw new Error('Пользователь не найден');
       }
 
-      // Разрешенные поля для обновления обычным пользователем
-      const allowedFields = ['firstName', 'lastName', 'bio', 'position', 'showInAuthorsList'];
+      const allowedFields = [
+        'firstName',
+        'lastName',
+        'bio',
+        'position',
+        'showInAuthorsList'
+      ];
 
-      // Обновляем только разрешенные поля
       allowedFields.forEach(field => {
         if (updateData[field] !== undefined) {
           user[field] = updateData[field];
@@ -282,14 +246,10 @@ class AuthService {
       });
 
       await user.save();
-
       console.log(`Профиль обновлен: ${user.email}`);
 
-      // Дешифруем данные перед отправкой на клиент
       await cryptoService.smartDecrypt(user);
-
       return this.formatUserResponse(user);
-
     } catch (error) {
       console.error('Ошибка обновления профиля:', error);
       throw error;
@@ -298,11 +258,6 @@ class AuthService {
 
   // ==================== УТИЛИТЫ ====================
 
-  /**
-   * Форматирование ответа с данными пользователя
-   * @param {Object} user - объект пользователя из БД
-   * @returns {Object} - отформатированные данные
-   */
   formatUserResponse(user) {
     return {
       id: user._id,
@@ -322,36 +277,19 @@ class AuthService {
     };
   }
 
-  /**
-   * Проверка роли пользователя
-   * @param {Object} user - объект пользователя
-   * @param {string} requiredRole - требуемая роль
-   * @returns {boolean}
-   */
   checkRole(user, requiredRole) {
     const roleHierarchy = {
-      'user': 1,
-      'author': 2,
-      'admin': 3
+      user: 1,
+      author: 2,
+      admin: 3
     };
-
     return roleHierarchy[user.role] >= roleHierarchy[requiredRole];
   }
 
-  /**
-   * Проверка, может ли пользователь писать статьи
-   * @param {Object} user - объект пользователя
-   * @returns {boolean}
-   */
   canWriteArticles(user) {
     return user.role === 'author' || user.role === 'admin';
   }
 
-  /**
-   * Проверка, может ли пользователь модерировать
-   * @param {Object} user - объект пользователя
-   * @returns {boolean}
-   */
   canModerate(user) {
     return user.role === 'admin';
   }

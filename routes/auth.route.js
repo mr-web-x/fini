@@ -8,10 +8,10 @@ import {
   authenticate,
   checkProfileOwnership,
   optionalAuth
-} from '../middlewares/auth.js';
+} from "../middlewares/auth.middleware.js"
 
 // Валидации
-import { authValidator, } from "../Validation/authValidator.js"
+import authValidator from '../Validation/authValidator.js';
 
 
 

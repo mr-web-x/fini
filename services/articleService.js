@@ -1,7 +1,8 @@
-import Article from "../models/Article.model.js"
-import User from "../models/User.model.js"
-import Category from "../models/Category.model.js"
+import Article from "../models/Article.model.js";
+import User from "../models/User.model.js";
+import Category from "../models/Category.model.js";
 import { writeLog } from "../middlewares/logger.js";
+import cryptoService from "./cryptoService.js"; // ✅ ДОБАВЛЕН ИМПОРТ
 
 class ArticleService {
 
@@ -17,8 +18,6 @@ class ArticleService {
     try {
       // Проверяем, что автор существует и имеет права
       const author = await User.findById(authorId);
-
-      // writeLog("INFO", "")
 
       if (!author) {
         throw new Error('Автор не найден');
@@ -69,18 +68,24 @@ class ArticleService {
    * @returns {Object} - статья
    */
   async getArticleById(articleId, populate = true) {
-    const article = await Article.findById(articleId)
-      .populate('author', 'firstName lastName email avatar bio position role')
-      .populate('category', 'name slug description');
+    try {
+      const article = await Article.findById(articleId)
+        .populate('author', 'firstName lastName email avatar bio position role')
+        .populate('category', 'name slug description');
 
-    if (!article) {
-      throw new Error('Статья не найдена');
+      if (!article) {
+        throw new Error('Статья не найдена');
+      }
+
+      // ✅ Расшифровываем автора
+      await cryptoService.smartDecrypt(article);
+
+      return article;
+
+    } catch (error) {
+      console.error('Ошибка получения статьи:', error);
+      throw error;
     }
-
-    // ✅ Расшифровываем автора
-    await cryptoService.smartDecrypt(article);
-
-    return article;
   }
 
   /**
@@ -97,6 +102,9 @@ class ArticleService {
       if (!article) {
         throw new Error('Статья не найдена');
       }
+
+      // ✅ Расшифровываем автора
+      await cryptoService.smartDecrypt(article);
 
       return article;
 
@@ -185,48 +193,37 @@ class ArticleService {
    */
   async deleteArticle(articleId, userId) {
     try {
-      // ✅ 1. Находим статью
       const article = await Article.findById(articleId);
 
       if (!article) {
         throw new Error('Статья не найдена');
       }
 
-      // ✅ 2. Находим пользователя
       const user = await User.findById(userId);
 
       if (!user) {
-        throw new Error('Пользователь не найден'); // ← исправлено сообщение
+        throw new Error('Пользователь не найден'); // ✅ ИСПРАВЛЕНО сообщение
       }
 
-      // ✅ 3. ДОБАВЛЕНО: Логирование для отладки
-      console.log('[DELETE] Проверка прав:', {
-        articleId,
-        articleStatus: article.status,
-        articleAuthor: article.author.toString(),
-        userId,
-        userRole: user.role,
-        isAuthor: article.author.toString() === userId,
-        isAdmin: user.role === 'admin'
-      });
-
-      // ✅ 4. Определяем права
+      // Определяем права
       const isAuthor = article.author.toString() === userId;
       const isAdmin = user.role === 'admin';
 
-      if (
-        !isAdmin && // не админ
-        (!isAuthor || (article.status !== 'draft' && article.status !== 'rejected')) // не автор или статус не подходит
-      ) {
-        return {
-          success: false,
-          message: 'Недостаточно прав для удаления статьи'
-        };
+      // Опубликованную статью может удалить ТОЛЬКО админ
+      if (article.status === 'published' && !isAdmin) {
+        throw new Error('Опубликованные статьи может удалять только администратор');
       }
 
-      console.log(`✅ Статья удалена: ${article.title} (статус: ${article.status})`);
+      // draft/pending/rejected может удалить автор ИЛИ админ
+      if (article.status !== 'published') {
+        if (!isAuthor && !isAdmin) {
+          throw new Error('У вас нет прав на удаление этой статьи');
+        }
+      }
 
       await Article.findByIdAndDelete(articleId);
+
+      console.log(`Статья удалена: ${article.title}`);
 
       return {
         success: true,
@@ -234,7 +231,7 @@ class ArticleService {
       };
 
     } catch (error) {
-      console.error('❌ Ошибка удаления статьи:', error.message);
+      console.error('Ошибка удаления статьи:', error);
       throw error;
     }
   }
@@ -277,8 +274,6 @@ class ArticleService {
       await article.save();
 
       console.log(`Статья отправлена на модерацию: ${article.title}`);
-
-      // TODO: отправить email уведомление админу
 
       return await this.getArticleById(article._id);
 
@@ -324,8 +319,6 @@ class ArticleService {
       await article.save();
 
       console.log(`Статья одобрена: ${article.title}`);
-
-      // TODO: отправить email уведомление автору
 
       return await this.getArticleById(article._id);
 
@@ -374,8 +367,6 @@ class ArticleService {
 
       console.log(`Статья отклонена: ${article.title}. Причина: ${reason}`);
 
-      // TODO: отправить email уведомление автору
-
       return await this.getArticleById(article._id);
 
     } catch (error) {
@@ -406,6 +397,11 @@ class ArticleService {
         .sort({ [sortBy]: sortOrder })
         .limit(limit)
         .skip(skip);
+
+      // ✅ Расшифровываем массив статей
+      await Promise.all(
+        articles.map(article => cryptoService.smartDecrypt(article))
+      );
 
       const total = await Article.countDocuments({ status: 'published' });
 
@@ -447,6 +443,11 @@ class ArticleService {
         .limit(limit)
         .skip(skip);
 
+      // ✅ Расшифровываем массив статей
+      await Promise.all(
+        articles.map(article => cryptoService.smartDecrypt(article))
+      );
+
       const total = await Article.countDocuments({
         status: 'published',
         category: categoryId
@@ -476,7 +477,7 @@ class ArticleService {
       const {
         limit = 20,
         skip = 0,
-        status = null // null = все статусы
+        status = null
       } = options;
 
       const filter = { author: authorId };
@@ -487,6 +488,11 @@ class ArticleService {
         .sort({ createdAt: -1 })
         .limit(limit)
         .skip(skip);
+
+      // ✅ Расшифровываем массив статей (здесь нет populate author, но может быть в других полях)
+      await Promise.all(
+        articles.map(article => cryptoService.smartDecrypt(article))
+      );
 
       const total = await Article.countDocuments(filter);
 
@@ -512,7 +518,12 @@ class ArticleService {
       const articles = await Article.find({ status: 'pending' })
         .populate('author', 'firstName lastName email avatar')
         .populate('category', 'name slug')
-        .sort({ submittedAt: 1 }); // сначала старые
+        .sort({ submittedAt: 1 });
+
+      // ✅ Расшифровываем массив статей
+      await Promise.all(
+        articles.map(article => cryptoService.smartDecrypt(article))
+      );
 
       return articles;
 
@@ -542,6 +553,11 @@ class ArticleService {
         .sort({ views: -1 })
         .limit(limit);
 
+      // ✅ Расшифровываем массив статей
+      await Promise.all(
+        articles.map(article => cryptoService.smartDecrypt(article))
+      );
+
       return articles;
 
     } catch (error) {
@@ -570,6 +586,11 @@ class ArticleService {
         .populate('category', 'name slug')
         .limit(limit)
         .skip(skip);
+
+      // ✅ Расшифровываем массив статей
+      await Promise.all(
+        articles.map(article => cryptoService.smartDecrypt(article))
+      );
 
       return articles;
 
@@ -635,4 +656,4 @@ class ArticleService {
   }
 }
 
-export default new ArticleService()
+export default new ArticleService();
