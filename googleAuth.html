@@ -60,6 +60,8 @@
             overflow-x: auto;
         }
     </style>
+    <!-- Подключаем Google Identity Services -->
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 
 <body>
@@ -75,8 +77,6 @@
             const token = urlParams.get('token');
 
             if (token) {
-                // Можна роздекодувати JWT на фронті або передати через postMessage у opener
-                // Якщо ти відкрив popup для авторизації:
                 if (window.opener) {
                     window.opener.postMessage({ token }, window.location.origin);
                     window.close();
@@ -89,10 +89,12 @@
         }
     </script>
 
-
     <script>
-        // Постав сюди свій бекенд
-        const AUTH_URL = 'http://localhost:5000/api/auth/google';
+        // Твій бекенд Express
+        const AUTH_URL = 'http://localhost:10001/api/auth/google';
+
+        // Твій CLIENT_ID із Google Cloud
+        const GOOGLE_CLIENT_ID = '864643278775-a8b5122j5b52f99mou52t19dik9c7ppr.apps.googleusercontent.com';
 
         const loginBtn = document.getElementById('loginBtn');
         const resultDiv = document.getElementById('result');

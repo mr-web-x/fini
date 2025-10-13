@@ -11,7 +11,7 @@ import {
 } from "../middlewares/auth.middleware.js"
 
 // Валидации
-import authValidator from '../Validation/authValidator.js';
+import authValidator from '../validation/authValidator.js';
 
 
 
@@ -27,7 +27,15 @@ router.post(
   authValidator.validateGoogleAuth,   // ✅ Валидация токена из body
   authController.googleAuth           // ✅ Контроллер
 );
+// ------------------------------------------------------------
+router.get('/google', (req, res) => {
+  res.json({
+    success: true,
+    message: 'Google OAuth endpoint работает ✅ (GET)',  // TEST
+  });
+});
 
+//-------------------------------------------------------------------
 /**
  * @route GET /api/auth/me
  * @desc Получение информации о текущем пользователе
