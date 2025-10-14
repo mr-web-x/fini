@@ -38,8 +38,7 @@ class CryptoService {
       },
       (error) => {
         console.error(
-          `❌ Crypto Service Error: ${error.response?.status || "NETWORK"} ${
-            error.config?.url
+          `❌ Crypto Service Error: ${error.response?.status || "NETWORK"} ${error.config?.url
           }`
         );
         console.error(
@@ -197,6 +196,7 @@ class CryptoService {
       if (dataToDecrypt._doc) {
         try {
           if (typeof dataToDecrypt.decrypt === "function") {
+            console.log(dataToDecrypt)
             await dataToDecrypt.decrypt();
           }
         } catch (err) {

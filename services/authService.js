@@ -61,20 +61,16 @@ class AuthService {
       let user = await UserModel.findOne({ googleId: googleData.googleId });
 
       if (user) {
-        // Проверяем статус
         const statusCheck = await this.validateUserStatus(user);
-
         if (!statusCheck.valid) {
           throw new Error(statusCheck.message);
         }
 
-        // Обновляем время последнего входа
         user.lastLogin = new Date();
         await user.save();
-
-        console.log(`Пользователь вошел: ${user.email}`);
+        console.log(`Пользователь вошел: ${googleData.googleId}`);
       } else {
-        // Новый пользователь — создаём аккаунт
+        // Новый пользователь
         user = await UserModel.create({
           email: googleData.email,
           googleId: googleData.googleId,
@@ -85,17 +81,39 @@ class AuthService {
           lastLogin: new Date()
         });
 
-        console.log(`Новый пользователь создан: ${user.email}`);
+        console.log(`Новый пользователь создан: ${user}`);
       }
 
-      // Дешифруем данные перед отправкой на клиент
-      await cryptoService.smartDecrypt(user);
+      try {
+        await cryptoService.smartDecrypt(user)
+      } catch (error) {
+        console.log("{cryptoService.smartDecrypt(user)}", error.message)
+      }
 
-      // Генерируем JWT токен
-      const token = this.generateToken(user);
+
+      console.log('✅ Расшифрованные данные:', {
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName
+      });
+
+      // ✅ Генерируем JWT с расшифрованными данными
+      const token = this.generateToken({
+        _id: user._id,
+        email: user.email,
+        role: user.role
+      });
 
       return {
-        user: this.formatUserResponse(user),
+        user: {
+          userId: user._id,
+          email: user.email,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          role: user.role,
+          avatar: user.avatar,
+          lastLogin: user.lastLogin
+        },
         token
       };
     } catch (error) {
@@ -183,12 +201,7 @@ class AuthService {
   // ==================== JWT ТОКЕНЫ ====================
 
   generateToken(user) {
-    console.log('🔑 JWT_SECRET:', process.env.JWT_SECRET);
-    console.log('📋 Все env переменные:', {
-      JWT_SECRET: process.env.JWT_SECRET,
-      GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID,
-      MONGODB_URI: process.env.MONGODB_URI
-    });
+
 
     const payload = {
       userId: user._id,
@@ -223,6 +236,7 @@ class AuthService {
   async getUserInfo(userId) {
     try {
       const user = await UserModel.findById(userId).select('-__v');
+
       if (!user) {
         throw new Error('Пользователь не найден');
       }
