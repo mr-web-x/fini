@@ -183,6 +183,13 @@ class AuthService {
   // ==================== JWT ТОКЕНЫ ====================
 
   generateToken(user) {
+    console.log('🔑 JWT_SECRET:', process.env.JWT_SECRET);
+    console.log('📋 Все env переменные:', {
+      JWT_SECRET: process.env.JWT_SECRET,
+      GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID,
+      MONGODB_URI: process.env.MONGODB_URI
+    });
+
     const payload = {
       userId: user._id,
       email: user.email,
@@ -191,11 +198,15 @@ class AuthService {
       lastName: user.lastName
     };
 
-    return jwt.sign(payload, process.env.JWT_SECRET, {
+    const token = jwt.sign(payload, process.env.JWT_SECRET, {
       expiresIn: process.env.JWT_EXPIRATION || '7d',
       issuer: 'fini.sk',
       audience: 'fini-users'
     });
+
+    console.log('🎫 Сгенерированный JWT токен:', token);
+
+    return token;
   }
 
   async refreshToken(oldToken) {

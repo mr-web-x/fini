@@ -12,6 +12,6 @@ export const microServices = {
   },
   crypto: {
     xApiKey: process.env.CRYPTO_SERVICE_X_API_KEY,
-    baseUrl: "http://127.0.0.1:5008",
+    baseUrl: "http://91.99.76.207:5008",
   },
 };
