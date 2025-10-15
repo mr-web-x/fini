@@ -55,7 +55,7 @@ class AuthValidator {
 
     validateUpdateProfile(req, res, next) {
         try {
-            const { firstName, lastName, bio, position, showInAuthorsList } = req.body;
+            const { firstName, lastName, bio, position, showInAuthorsList, role } = req.body;
 
             const errors = [];
 
@@ -98,6 +98,18 @@ class AuthValidator {
             // ShowInAuthorsList (опционально)
             if (showInAuthorsList !== undefined && typeof showInAuthorsList !== 'boolean') {
                 errors.push('showInAuthorsList должно быть boolean');
+            }
+
+            // ✅ НОВОЕ: Role (опционально) - валидация формата
+            if (role !== undefined) {
+                if (typeof role !== 'string') {
+                    errors.push('Роль должна быть строкой');
+                } else {
+                    const validRoles = ['user', 'author', 'admin'];
+                    if (!validRoles.includes(role)) {
+                        errors.push('Недопустимое значение роли. Разрешены: user, author, admin');
+                    }
+                }
             }
 
             if (errors.length > 0) {

@@ -41,7 +41,16 @@ class UserController {
             const userId = req.params.id;
             const updateData = req.body;
 
-            const updatedUser = await userService.updateProfile(userId, updateData);
+            // Передаем данные текущего пользователя для проверки прав
+            const currentUserId = req.user.userId.toString();
+            const currentUserRole = req.user.role;
+
+            const updatedUser = await userService.updateProfile(
+                userId,
+                updateData,
+                currentUserId,
+                currentUserRole
+            );
 
             return res.status(200).json({
                 success: true,

@@ -34,14 +34,43 @@ class UserService {
      * Обновление профиля пользователя
      * @param {string} userId - ID пользователя
      * @param {Object} updateData - данные для обновления
+     * @param {string} currentUserId - ID текущего пользователя (кто делает запрос)
+     * @param {string} currentUserRole - роль текущего пользователя
      * @returns {Object} - обновленный пользователь
      */
-    async updateProfile(userId, updateData) {
+    async updateProfile(userId, updateData, currentUserId, currentUserRole) {
         try {
             const user = await UserModel.findById(userId);
             if (!user) {
                 throw new Error('Пользователь не найден');
             }
+
+            // ==================== ПРОВЕРКА ПРАВ НА ИЗМЕНЕНИЕ РОЛИ ====================
+
+            // Если пытаются изменить роль
+            if (updateData.role !== undefined) {
+                // Только админ может менять роли
+                if (currentUserRole !== 'admin') {
+                    throw new Error('Только администратор может изменять роли пользователей');
+                }
+
+                // Валидация значения роли
+                const validRoles = ['user', 'author', 'admin'];
+                if (!validRoles.includes(updateData.role)) {
+                    throw new Error('Недопустимое значение роли. Разрешены: user, author, admin');
+                }
+
+                // Админ не может изменить свою собственную роль (защита от случайного понижения)
+                if (userId === currentUserId && user.role === 'admin') {
+                    throw new Error('Нельзя изменить собственную роль администратора');
+                }
+
+                // Обновляем роль
+                user.role = updateData.role;
+                console.log(`🔐 Роль пользователя ${user.email} изменена: ${user.role} → ${updateData.role} (Admin: ${currentUserId})`);
+            }
+
+            // ==================== ОБНОВЛЕНИЕ БАЗОВЫХ ПОЛЕЙ ====================
 
             const allowedFields = [
                 'firstName',
