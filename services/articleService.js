@@ -253,7 +253,7 @@ class ArticleService {
       }
 
       // Проверка прав (только автор статьи)
-      if (article.author.toString() !== userId) {
+      if (article.author.toString() !== userId.toString()) {
         throw new Error('Вы не являетесь автором этой статьи');
       }
 

@@ -97,11 +97,7 @@ class AuthService {
       });
 
       // Генерируем JWT с расшифрованными данными
-      const token = this.generateToken({
-        _id: user._id,
-        email: user.email,
-        role: user.role
-      });
+      const token = this.generateToken(user);
 
       return {
         user: {
@@ -202,10 +198,6 @@ class AuthService {
   generateToken(user) {
     const payload = {
       userId: user._id,
-      email: user.email,
-      role: user.role,
-      firstName: user.firstName,
-      lastName: user.lastName
     };
 
     const token = jwt.sign(payload, process.env.JWT_SECRET, {

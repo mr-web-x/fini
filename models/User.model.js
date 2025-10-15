@@ -8,6 +8,7 @@ const userSchema = new mongoose.Schema({
     unique: true,
     lowercase: true,
     trim: true
+    // ❌ НЕТ maxlength - поле шифруется!
   },
 
   googleId: {
@@ -19,15 +20,17 @@ const userSchema = new mongoose.Schema({
   firstName: {
     type: String,
     trim: true,
-    maxlength: [50, 'Имя может содержать максимум 50 символов'],
+    maxlength: [200, 'Имя может содержать максимум 50 символов (200 после шифрования)'],
     default: ''
+    // ✅ Увеличено до 200 для зашифрованных данных
   },
 
   lastName: {
     type: String,
     trim: true,
-    maxlength: [50, 'Фамилия может содержать максимум 50 символов'],
+    maxlength: [200, 'Фамилия может содержать максимум 50 символов (200 после шифрования)'],
     default: ''
+    // ✅ Увеличено до 200 для зашифрованных данных
   },
 
   avatar: {
@@ -44,14 +47,16 @@ const userSchema = new mongoose.Schema({
   // Для авторов (author и admin)
   bio: {
     type: String,
-    maxlength: [500, 'Биография может содержать максимум 500 символов'],
+    maxlength: [2000, 'Биография может содержать максимум 500 символов (2000 после шифрования)'],
     default: ''
+    // ✅ Увеличено до 2000 для зашифрованных данных
   },
 
   position: {
     type: String,
     maxlength: [100, 'Должность может содержать максимум 100 символов'],
     default: ''
+    // ✅ Это поле НЕ шифруется, оставляем 100
   },
 
   showInAuthorsList: {
@@ -94,11 +99,13 @@ userSchema.index({ googleId: 1 });
 userSchema.index({ role: 1 });
 userSchema.index({ 'isBlocked.status': 1 });
 
+// ==================== ШИФРОВАНИЕ ====================
+// ⚠️ Эти поля будут зашифрованы, поэтому maxlength увеличен!
 EncryptableService.applyEncryption(userSchema, [
-  "email",
-  "firstName",
-  "lastName",
-  "bio"
+  "email",      // Нет maxlength
+  "firstName",  // maxlength: 200
+  "lastName",   // maxlength: 200
+  "bio"         // maxlength: 2000
 ]);
 
 export default mongoose.model('User', userSchema);

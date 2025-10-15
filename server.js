@@ -51,7 +51,7 @@ const startServer = async () => {
         // 1. Подключаемся к базе данных
         await connectDB();
 
-        // 2. Запускаем сервер
+        // 3. Запускаем сервер
         const server = app.listen(PORT, () => {
             console.log('');
             console.log('╔════════════════════════════════════════╗');

@@ -70,10 +70,10 @@ app.get('/', (req, res) => {
             endpoints: {
                 health: '/health',
                 auth: '/api/auth',
-                users: '/api/users'
-                // articles: '/api/articles',
-                // categories: '/api/categories',
-                // comments: '/api/comments'
+                users: '/api/users',
+                articles: '/api/articles',
+                categories: '/api/categories',
+                comments: '/api/comments'
             }
         }
     });
