@@ -31,19 +31,20 @@ app.use(logger);
 // ==================== ROUTES ====================
 
 // ✅ Импорт маршрутов через главный index.js
-import { authRoutes, userRoutes } from './routes/index.js';
-
-// TODO: Добавить остальные routes когда создадим
-// import { articleRoutes, categoryRoutes, commentRoutes } from './routes/index.js';
+import {
+    authRoutes,
+    userRoutes,
+    articleRoutes,
+    categoryRoutes,
+    commentRoutes
+} from './routes/index.js';
 
 // Базовые маршруты API
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
-
-// TODO: Раскомментировать когда создадим routes
-// app.use('/api/articles', articleRoutes);
-// app.use('/api/categories', categoryRoutes);
-// app.use('/api/comments', commentRoutes);
+app.use('/api/articles', articleRoutes);
+app.use('/api/categories', categoryRoutes);
+app.use('/api/comments', commentRoutes);
 
 // ==================== HEALTH CHECK ====================
 
