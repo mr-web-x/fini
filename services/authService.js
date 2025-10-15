@@ -68,7 +68,7 @@ class AuthService {
 
         user.lastLogin = new Date();
         await user.save();
-        console.log(`Пользователь вошел: ${googleData.googleId}`);
+        console.log(`✅ Пользователь вошел: ${googleData.googleId}`);
       } else {
         // Новый пользователь
         user = await UserModel.create({
@@ -81,15 +81,14 @@ class AuthService {
           lastLogin: new Date()
         });
 
-        console.log(`Новый пользователь создан: ${user}`);
+        console.log(`✅ Новый пользователь создан: ${user.email}`);
       }
 
       try {
         await cryptoService.smartDecrypt(user)
       } catch (error) {
-        console.log("{cryptoService.smartDecrypt(user)}", error.message)
+        console.log("Ошибка расшифровки:", error.message)
       }
-
 
       console.log('✅ Расшифрованные данные:', {
         email: user.email,
@@ -97,7 +96,7 @@ class AuthService {
         lastName: user.lastName
       });
 
-      // ✅ Генерируем JWT с расшифрованными данными
+      // Генерируем JWT с расшифрованными данными
       const token = this.generateToken({
         _id: user._id,
         email: user.email,
@@ -201,8 +200,6 @@ class AuthService {
   // ==================== JWT ТОКЕНЫ ====================
 
   generateToken(user) {
-
-
     const payload = {
       userId: user._id,
       email: user.email,
@@ -231,76 +228,7 @@ class AuthService {
     }
   }
 
-  // ==================== УПРАВЛЕНИЕ ПРОФИЛЕМ ====================
-
-  async getUserInfo(userId) {
-    try {
-      const user = await UserModel.findById(userId).select('-__v');
-
-      if (!user) {
-        throw new Error('Пользователь не найден');
-      }
-
-      await cryptoService.smartDecrypt(user);
-      return this.formatUserResponse(user);
-    } catch (error) {
-      console.error('Ошибка получения информации о пользователе:', error);
-      throw error;
-    }
-  }
-
-  async updateProfile(userId, updateData) {
-    try {
-      const user = await UserModel.findById(userId);
-      if (!user) {
-        throw new Error('Пользователь не найден');
-      }
-
-      const allowedFields = [
-        'firstName',
-        'lastName',
-        'bio',
-        'position',
-        'showInAuthorsList'
-      ];
-
-      allowedFields.forEach(field => {
-        if (updateData[field] !== undefined) {
-          user[field] = updateData[field];
-        }
-      });
-
-      await user.save();
-      console.log(`Профиль обновлен: ${user.email}`);
-
-      await cryptoService.smartDecrypt(user);
-      return this.formatUserResponse(user);
-    } catch (error) {
-      console.error('Ошибка обновления профиля:', error);
-      throw error;
-    }
-  }
-
   // ==================== УТИЛИТЫ ====================
-
-  formatUserResponse(user) {
-    return {
-      id: user._id,
-      email: user.email,
-      googleId: user.googleId,
-      firstName: user.firstName,
-      lastName: user.lastName,
-      avatar: user.avatar,
-      role: user.role,
-      bio: user.bio,
-      position: user.position,
-      showInAuthorsList: user.showInAuthorsList,
-      isBlocked: user.isBlocked,
-      lastLogin: user.lastLogin,
-      createdAt: user.createdAt,
-      updatedAt: user.updatedAt
-    };
-  }
 
   checkRole(user, requiredRole) {
     const roleHierarchy = {

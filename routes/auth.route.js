@@ -4,16 +4,10 @@
 
 import express from 'express';
 import authController from '../controllers/authController.js';
-import {
-  authenticate,
-  checkProfileOwnership,
-  optionalAuth
-} from "../middlewares/auth.middleware.js"
+import { optionalAuth } from "../middlewares/auth.middleware.js"
 
 // Валидации
 import authValidator from '../validation/authValidator.js';
-
-
 
 const router = express.Router();
 
@@ -27,6 +21,7 @@ router.post(
   authValidator.validateGoogleAuth,   // ✅ Валидация токена из body
   authController.googleAuth           // ✅ Контроллер
 );
+
 // ------------------------------------------------------------
 router.get('/google', (req, res) => {
   res.json({
@@ -34,18 +29,6 @@ router.get('/google', (req, res) => {
     message: 'Google OAuth endpoint работает ✅ (GET)',  // TEST
   });
 });
-
-//-------------------------------------------------------------------
-/**
- * @route GET /api/auth/me
- * @desc Получение информации о текущем пользователе
- * @access Private
- */
-router.get(
-  '/me',
-  authenticate,                       // ✅ Проверка JWT токена
-  authController.getMe                // ✅ Контроллер
-);
 
 /**
  * @route POST /api/auth/refresh
@@ -56,19 +39,6 @@ router.post(
   '/refresh',
   authValidator.validateRefreshToken, // ✅ Проверка поля token
   authController.refreshToken         // ✅ Контроллер
-);
-
-/**
- * @route PUT /api/auth/profile/:id
- * @desc Обновление профиля пользователя
- * @access Private (только владелец профиля или админ)
- */
-router.put(
-  '/profile/:id',
-  authenticate,                       // ✅ Проверка JWT токена
-  checkProfileOwnership,              // ✅ Проверка владельца профиля
-  authValidator.validateUpdateProfile,// ✅ Проверка валидности данных
-  authController.updateProfile        // ✅ Контроллер
 );
 
 /**

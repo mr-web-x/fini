@@ -6,6 +6,11 @@ import authService from '../services/authService.js';
 
 class AuthController {
 
+    /**
+     * Авторизация через Google OAuth
+     * @route POST /api/auth/google
+     * @access Public
+     */
     async googleAuth(req, res) {
         try {
             const { token } = req.body;
@@ -26,26 +31,11 @@ class AuthController {
         }
     }
 
-    async getMe(req, res) {
-        try {
-            const userId = req.user.userId;
-
-            const user = await authService.getUserInfo(userId);
-
-            return res.status(200).json({
-                success: true,
-                message: 'Данные пользователя получены',
-                data: user
-            });
-
-        } catch (error) {
-            return res.status(400).json({
-                success: false,
-                message: error.message || 'Ошибка получения данных пользователя'
-            });
-        }
-    }
-
+    /**
+     * Обновление JWT токена
+     * @route POST /api/auth/refresh
+     * @access Public
+     */
     async refreshToken(req, res) {
         try {
             const { token } = req.body;
@@ -66,27 +56,11 @@ class AuthController {
         }
     }
 
-    async updateProfile(req, res) {
-        try {
-            const userId = req.user.userId;
-            const updateData = req.body;
-
-            const updatedUser = await authService.updateProfile(userId, updateData);
-
-            return res.status(200).json({
-                success: true,
-                message: 'Профиль обновлен',
-                data: updatedUser
-            });
-
-        } catch (error) {
-            return res.status(400).json({
-                success: false,
-                message: error.message || 'Ошибка обновления профиля'
-            });
-        }
-    }
-
+    /**
+     * Выход из системы
+     * @route POST /api/auth/logout
+     * @access Private
+     */
     async logout(req, res) {
         try {
             return res.status(200).json({

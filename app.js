@@ -30,15 +30,16 @@ app.use(logger);
 
 // ==================== ROUTES ====================
 
-// Импорт маршрутов
-import authRoutes from './routes/auth.route.js';
-// TODO: Добавить остальные routes
-// import articleRoutes from './routes/article.routes.js';
-// import categoryRoutes from './routes/category.routes.js';
-// import commentRoutes from './routes/comment.routes.js';
+// ✅ Импорт маршрутов через главный index.js
+import { authRoutes, userRoutes } from './routes/index.js';
+
+// TODO: Добавить остальные routes когда создадим
+// import { articleRoutes, categoryRoutes, commentRoutes } from './routes/index.js';
 
 // Базовые маршруты API
 app.use('/api/auth', authRoutes);
+app.use('/api/users', userRoutes);
+
 // TODO: Раскомментировать когда создадим routes
 // app.use('/api/articles', articleRoutes);
 // app.use('/api/categories', categoryRoutes);
@@ -68,6 +69,7 @@ app.get('/', (req, res) => {
             endpoints: {
                 health: '/health',
                 auth: '/api/auth',
+                users: '/api/users'
                 // articles: '/api/articles',
                 // categories: '/api/categories',
                 // comments: '/api/comments'
