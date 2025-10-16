@@ -11,7 +11,7 @@ import {
 } from '../middlewares/auth.middleware.js';
 
 // Валидации
-import articleValidator from '../validation/articleValidate.js'; // ⚠️ БЕЗ 'or'
+import articleValidator from '../validation/articleValidate.js';
 import commonValidator from '../validation/commonValidator.js';
 
 const router = express.Router();
@@ -30,6 +30,50 @@ router.get(
 );
 
 /**
+ * @route GET /api/articles/search
+ * @desc Поиск статей
+ * @access Public
+ */
+router.get(
+    '/search',
+    articleController.searchArticles
+);
+
+/**
+ * @route GET /api/articles/popular/list
+ * @desc Получение популярных статей
+ * @access Public
+ */
+router.get(
+    '/popular/list',
+    articleController.getPopularArticles
+);
+
+/**
+ * @route GET /api/articles/pending/list
+ * @desc Получение статей на модерации
+ * @access Private (admin only)
+ */
+router.get(
+    '/pending/list',
+    authenticate,
+    requireAdmin,
+    articleController.getPendingArticles
+);
+
+/**
+ * @route GET /api/articles/stats/all
+ * @desc Получение статистики по статьям
+ * @access Private (admin only)
+ */
+router.get(
+    '/stats/all',
+    authenticate,
+    requireAdmin,
+    articleController.getStatistics
+);
+
+/**
  * @route GET /api/articles/slug/:slug
  * @desc Получение статьи по slug
  * @access Public
@@ -37,16 +81,6 @@ router.get(
 router.get(
     '/slug/:slug',
     articleController.getArticleBySlug
-);
-
-/**
- * @route GET /api/articles/:id
- * @desc Получение статьи по ID
- * @access Public
- */
-router.get(
-    '/:id',
-    articleController.getArticleById
 );
 
 /**
@@ -72,23 +106,13 @@ router.get(
 );
 
 /**
- * @route GET /api/articles/popular/list
- * @desc Получение популярных статей
+ * @route GET /api/articles/:id
+ * @desc Получение статьи по ID
  * @access Public
  */
 router.get(
-    '/popular/list',
-    articleController.getPopularArticles
-);
-
-/**
- * @route GET /api/articles/search
- * @desc Поиск статей
- * @access Public
- */
-router.get(
-    '/search',
-    articleController.searchArticles
+    '/:id',
+    articleController.getArticleById
 );
 
 /**
@@ -156,18 +180,6 @@ router.post(
 // ==================== АДМИНСКИЕ МАРШРУТЫ ====================
 
 /**
- * @route GET /api/articles/pending/list
- * @desc Получение статей на модерации
- * @access Private (admin only)
- */
-router.get(
-    '/pending/list',
-    authenticate,
-    requireAdmin,
-    articleController.getPendingArticles
-);
-
-/**
  * @route POST /api/articles/:id/approve
  * @desc Одобрение статьи (pending → published)
  * @access Private (admin only)
@@ -188,19 +200,8 @@ router.post(
     '/:id/reject',
     authenticate,
     requireAdmin,
+    articleValidator.validateRejectArticle,
     articleController.rejectArticle
-);
-
-/**
- * @route GET /api/articles/stats/all
- * @desc Получение статистики по статьям
- * @access Private (admin only)
- */
-router.get(
-    '/stats/all',
-    authenticate,
-    requireAdmin,
-    articleController.getStatistics
 );
 
 export default router;

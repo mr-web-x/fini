@@ -137,7 +137,7 @@ class ArticleService {
       const user = await User.findById(userId);
 
       // Проверка прав
-      const isAuthor = article.author.toString() === userId;
+      const isAuthor = article.author.toString() === userId.toString();
       const isAdmin = user.role === 'admin';
 
       if (!isAuthor && !isAdmin) {
@@ -206,7 +206,7 @@ class ArticleService {
       }
 
       // Определяем права
-      const isAuthor = article.author.toString() === userId;
+      const isAuthor = article.author.toString() === userId.toString();
       const isAdmin = user.role === 'admin';
 
       // Опубликованную статью может удалить ТОЛЬКО админ

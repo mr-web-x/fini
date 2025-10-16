@@ -6,7 +6,6 @@ const userSchema = new mongoose.Schema({
     type: String,
     required: [true, 'Email обязателен'],
     unique: true,
-    lowercase: true,
     trim: true
     // ❌ НЕТ maxlength - поле шифруется!
   },
