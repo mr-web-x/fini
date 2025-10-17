@@ -1,7 +1,7 @@
 import CommentModel from '../models/Comment.model.js';
 import ArticleModel from '../models/Article.model.js';
 import UserModel from '../models/User.model.js';
-import cryptoService from './cryptoService.js'; // ✅ ДОБАВЛЕН ИМПОРТ
+import cryptoService from './cryptoService.js';
 
 class CommentService {
   // ==================== CRUD ОПЕРАЦИИ ====================
@@ -11,7 +11,7 @@ class CommentService {
    */
   async createComment(commentData, userId) {
     try {
-      const { article, content, parentComment } = commentData;
+      const { article, content } = commentData;
 
       // Проверяем пользователя
       const user = await UserModel.findById(userId);
@@ -29,21 +29,11 @@ class CommentService {
         throw new Error('Комментарии можно оставлять только к опубликованным статьям');
       }
 
-      // Проверяем родительский комментарий
-      if (parentComment) {
-        const parentExists = await CommentModel.findById(parentComment);
-        if (!parentExists) throw new Error('Родительский комментарий не найден');
-        if (parentExists.article.toString() !== article) {
-          throw new Error('Родительский комментарий принадлежит другой статье');
-        }
-      }
-
-      // Создаём комментарий
+      // ✅ Создаём комментарий (БЕЗ parentComment)
       const comment = await CommentModel.create({
         article,
         user: userId,
-        content: content.trim(),
-        parentComment: parentComment || null
+        content: content.trim()
       });
 
       console.log(`Комментарий создан: ${comment._id}`);
@@ -62,7 +52,6 @@ class CommentService {
     try {
       const comment = await CommentModel.findById(commentId)
         .populate('user', 'firstName lastName avatar role')
-        .populate('parentComment')
         .populate('deletedBy', 'firstName lastName');
 
       if (!comment) throw new Error('Комментарий не найден');
@@ -86,7 +75,7 @@ class CommentService {
       const comment = await CommentModel.findById(commentId);
       if (!comment) throw new Error('Комментарий не найден');
 
-      if (comment.user.toString() !== userId) {
+      if (comment.user.toString() !== userId.toString()) {
         throw new Error('Вы не можете редактировать чужой комментарий');
       }
       if (comment.isDeleted) {
@@ -114,8 +103,12 @@ class CommentService {
       if (!comment) throw new Error('Комментарий не найден');
 
       const user = await UserModel.findById(userId);
-      const isAuthor = comment.user.toString() === userId;
+      if (!user) throw new Error('Пользователь не найден');
+
+      // Определяем права
+      const isAuthor = comment.user.toString() === userId.toString();
       const isAdmin = user.role === 'admin';
+
 
       if (!isAuthor && !isAdmin) {
         throw new Error('У вас нет прав на удаление этого комментария');
@@ -137,6 +130,9 @@ class CommentService {
 
   // ==================== ПОЛУЧЕНИЕ СПИСКОВ ====================
 
+  /**
+   * Получение комментариев к статье (БЕЗ вложенных ответов)
+   */
   async getArticleComments(articleId, options = {}) {
     try {
       const { includeDeleted = false, limit = 50, skip = 0 } = options;
@@ -144,7 +140,8 @@ class CommentService {
       const article = await ArticleModel.findById(articleId);
       if (!article) throw new Error('Статья не найдена');
 
-      const filter = { article: articleId, parentComment: null };
+      // ✅ Убираем фильтр parentComment: null - теперь все комментарии равнозначны
+      const filter = { article: articleId };
       if (!includeDeleted) filter.isDeleted = false;
 
       const comments = await CommentModel.find(filter)
@@ -159,16 +156,10 @@ class CommentService {
         comments.map(comment => cryptoService.smartDecrypt(comment))
       );
 
-      const commentsWithReplies = await Promise.all(
-        comments.map(async (comment) => {
-          const replies = await this.getCommentReplies(comment._id, includeDeleted);
-          return { ...comment.toObject(), replies };
-        })
-      );
-
+      // ✅ Убрали логику с replies - просто возвращаем плоский список
       const total = await CommentModel.countDocuments(filter);
       return {
-        comments: commentsWithReplies,
+        comments, // ✅ БЕЗ вложенных ответов
         total,
         page: Math.floor(skip / limit) + 1,
         totalPages: Math.ceil(total / limit)
@@ -180,29 +171,9 @@ class CommentService {
     }
   }
 
-  async getCommentReplies(parentCommentId, includeDeleted = false) {
-    try {
-      const filter = { parentComment: parentCommentId };
-      if (!includeDeleted) filter.isDeleted = false;
-
-      const replies = await CommentModel.find(filter)
-        .populate('user', 'firstName lastName avatar role')
-        .populate('deletedBy', 'firstName lastName')
-        .sort({ createdAt: 1 });
-
-      // ✅ Расшифровываем массив ответов
-      await Promise.all(
-        replies.map(reply => cryptoService.smartDecrypt(reply))
-      );
-
-      return replies;
-
-    } catch (error) {
-      console.error('Ошибка получения ответов:', error);
-      throw error;
-    }
-  }
-
+  /**
+   * Получение комментариев пользователя
+   */
   async getUserComments(userId, options = {}) {
     try {
       const { includeDeleted = false, limit = 20, skip = 0 } = options;
@@ -236,6 +207,9 @@ class CommentService {
     }
   }
 
+  /**
+   * Получение всех комментариев (для админа)
+   */
   async getAllComments(options = {}) {
     try {
       const {
@@ -278,75 +252,47 @@ class CommentService {
 
   // ==================== МОДЕРАЦИЯ ====================
 
-  async moderateDeleteComment(commentId, adminId, reason = '') {
-    try {
-      const comment = await CommentModel.findById(commentId);
-      if (!comment) throw new Error('Комментарий не найден');
+  /**
+   * Удаление комментария админом
+   */
+  // async moderateDeleteComment(req, res) {
+  //   try {
+  //     const { id } = req.params;
+  //     const adminId = req.user.userId;
 
-      const admin = await UserModel.findById(adminId);
-      if (!admin || admin.role !== 'admin') {
-        throw new Error('Только администратор может модерировать комментарии');
-      }
+  //     // ✅ ИСПРАВЛЕНО: Безопасное получение reason
+  //     const reason = req.body ? req.body.reason : undefined;
 
-      comment.isDeleted = true;
-      comment.deletedBy = adminId;
-      comment.deletedAt = new Date();
-      await comment.save();
+  //     const result = await commentService.moderateDeleteComment(id, adminId, reason);
 
-      console.log(`Комментарий удален админом: ${comment._id}. Причина: ${reason}`);
-      return { success: true, message: 'Комментарий удален администратором' };
+  //     return res.status(200).json({
+  //       success: true,
+  //       message: result.message
+  //     });
 
-    } catch (error) {
-      console.error('Ошибка модерации комментария:', error);
-      throw error;
-    }
-  }
-
-  async deleteUserComments(userId, adminId) {
-    try {
-      const admin = await UserModel.findById(adminId);
-      if (!admin || admin.role !== 'admin') {
-        throw new Error('Только администратор может выполнять массовое удаление');
-      }
-
-      const result = await CommentModel.updateMany(
-        { user: userId, isDeleted: false },
-        {
-          $set: {
-            isDeleted: true,
-            deletedBy: adminId,
-            deletedAt: new Date()
-          }
-        }
-      );
-
-      console.log(`Удалено комментариев пользователя ${userId}: ${result.modifiedCount}`);
-      return {
-        success: true,
-        deletedCount: result.modifiedCount,
-        message: `Удалено комментариев: ${result.modifiedCount}`
-      };
-
-    } catch (error) {
-      console.error('Ошибка массового удаления комментариев:', error);
-      throw error;
-    }
-  }
+  //   } catch (error) {
+  //     return res.status(400).json({
+  //       success: false,
+  //       message: error.message || 'Ошибка модерации комментария'
+  //     });
+  //   }
+  // }
 
   // ==================== СТАТИСТИКА ====================
 
+  /**
+   * Получение статистики по комментариям
+   */
   async getStatistics() {
     try {
       const total = await CommentModel.countDocuments();
+      const active = await CommentModel.countDocuments({ isDeleted: false });
       const deleted = await CommentModel.countDocuments({ isDeleted: true });
-      const active = total - deleted;
-      const withReplies = await CommentModel.countDocuments({ parentComment: { $ne: null } });
 
+      // Топ комментаторов
       const topCommenters = await CommentModel.aggregate([
         { $match: { isDeleted: false } },
-        {
-          $group: { _id: '$user', count: { $sum: 1 } }
-        },
+        { $group: { _id: '$user', count: { $sum: 1 } } },
         { $sort: { count: -1 } },
         { $limit: 10 },
         {
@@ -369,8 +315,7 @@ class CommentService {
         }
       ]);
 
-      // ✅ Расшифровываем топ комментаторов
-      // Примечание: aggregate возвращает plain objects, поэтому расшифровываем вручную
+      // Расшифровываем данные топ комментаторов
       for (const commenter of topCommenters) {
         if (commenter.firstName) {
           try {
@@ -388,7 +333,12 @@ class CommentService {
         }
       }
 
-      return { total, active, deleted, replies: withReplies, topCommenters };
+      return {
+        total,
+        active,
+        deleted,
+        topCommenters
+      };
 
     } catch (error) {
       console.error('Ошибка получения статистики комментариев:', error);
@@ -396,6 +346,9 @@ class CommentService {
     }
   }
 
+  /**
+   * Подсчет комментариев к статье
+   */
   async getArticleCommentsCount(articleId) {
     try {
       return await CommentModel.countDocuments({ article: articleId, isDeleted: false });
@@ -405,6 +358,9 @@ class CommentService {
     }
   }
 
+  /**
+   * Подсчет комментариев пользователя
+   */
   async getUserCommentsCount(userId) {
     try {
       return await CommentModel.countDocuments({ user: userId, isDeleted: false });

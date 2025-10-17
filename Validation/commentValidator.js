@@ -1,5 +1,5 @@
 // ============================================
-// middlewares/validators/commentValidator.js
+// validation/commentValidator.js
 // ============================================
 
 class CommentValidator {
@@ -24,9 +24,9 @@ class CommentValidator {
                 errors.push('Комментарий может содержать максимум 2000 символов');
             }
 
-            // ParentComment (опционально)
-            if (parentComment !== undefined && typeof parentComment !== 'string') {
-                errors.push('ID родительского комментария должен быть строкой');
+            // ❌ ЗАПРЕЩАЕМ ParentComment - ответы на комментарии отключены
+            if (parentComment !== undefined) {
+                errors.push('Ответы на комментарии не поддерживаются');
             }
 
             if (errors.length > 0) {

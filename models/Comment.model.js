@@ -21,13 +21,6 @@ const commentSchema = new mongoose.Schema({
     maxlength: [2000, 'Комментарий может содержать максимум 2000 символов']
   },
 
-  // Threading - ответы на комментарии
-  parentComment: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Comment',
-    default: null
-  },
-
   // Удаление комментариев
   isDeleted: {
     type: Boolean,
@@ -49,7 +42,6 @@ const commentSchema = new mongoose.Schema({
 // ==================== ИНДЕКСЫ ====================
 commentSchema.index({ article: 1, createdAt: -1 });
 commentSchema.index({ user: 1 });
-commentSchema.index({ parentComment: 1 });
 commentSchema.index({ isDeleted: 1 });
 
 export default mongoose.model('Comment', commentSchema);

@@ -202,20 +202,25 @@ class ArticleService {
       const user = await User.findById(userId);
 
       if (!user) {
-        throw new Error('Пользователь не найден'); // ✅ ИСПРАВЛЕНО сообщение
+        throw new Error('Пользователь не найден');
       }
 
       // Определяем права
       const isAuthor = article.author.toString() === userId.toString();
       const isAdmin = user.role === 'admin';
 
+      // ✅ НОВАЯ ПРОВЕРКА: Статью на модерации (pending) НЕЛЬЗЯ удалять
+      if (article.status === 'pending') {
+        throw new Error('Статья находится на модерации и не может быть удалена. Дождитесь решения администратора.');
+      }
+
       // Опубликованную статью может удалить ТОЛЬКО админ
       if (article.status === 'published' && !isAdmin) {
         throw new Error('Опубликованные статьи может удалять только администратор');
       }
 
-      // draft/pending/rejected может удалить автор ИЛИ админ
-      if (article.status !== 'published') {
+      // draft/rejected может удалить автор ИЛИ админ
+      if (article.status === 'draft' || article.status === 'rejected') {
         if (!isAuthor && !isAdmin) {
           throw new Error('У вас нет прав на удаление этой статьи');
         }
