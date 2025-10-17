@@ -29,7 +29,7 @@ class CommentService {
         throw new Error('Комментарии можно оставлять только к опубликованным статьям');
       }
 
-      // ✅ Создаём комментарий (БЕЗ parentComment)
+      // Создаём комментарий
       const comment = await CommentModel.create({
         article,
         user: userId,
@@ -56,7 +56,7 @@ class CommentService {
 
       if (!comment) throw new Error('Комментарий не найден');
 
-      // ✅ Расшифровываем пользователя и deletedBy
+      // Расшифровываем пользователя и deletedBy
       await cryptoService.smartDecrypt(comment);
 
       return comment;
@@ -78,6 +78,7 @@ class CommentService {
       if (comment.user.toString() !== userId.toString()) {
         throw new Error('Вы не можете редактировать чужой комментарий');
       }
+
       if (comment.isDeleted) {
         throw new Error('Удаленный комментарий нельзя редактировать');
       }
@@ -105,10 +106,8 @@ class CommentService {
       const user = await UserModel.findById(userId);
       if (!user) throw new Error('Пользователь не найден');
 
-      // Определяем права
       const isAuthor = comment.user.toString() === userId.toString();
       const isAdmin = user.role === 'admin';
-
 
       if (!isAuthor && !isAdmin) {
         throw new Error('У вас нет прав на удаление этого комментария');
@@ -131,7 +130,7 @@ class CommentService {
   // ==================== ПОЛУЧЕНИЕ СПИСКОВ ====================
 
   /**
-   * Получение комментариев к статье (БЕЗ вложенных ответов)
+   * Получение комментариев к статье
    */
   async getArticleComments(articleId, options = {}) {
     try {
@@ -140,7 +139,6 @@ class CommentService {
       const article = await ArticleModel.findById(articleId);
       if (!article) throw new Error('Статья не найдена');
 
-      // ✅ Убираем фильтр parentComment: null - теперь все комментарии равнозначны
       const filter = { article: articleId };
       if (!includeDeleted) filter.isDeleted = false;
 
@@ -151,15 +149,14 @@ class CommentService {
         .limit(limit)
         .skip(skip);
 
-      // ✅ Расшифровываем массив комментариев
+      // Расшифровываем массив комментариев
       await Promise.all(
         comments.map(comment => cryptoService.smartDecrypt(comment))
       );
 
-      // ✅ Убрали логику с replies - просто возвращаем плоский список
       const total = await CommentModel.countDocuments(filter);
       return {
-        comments, // ✅ БЕЗ вложенных ответов
+        comments,
         total,
         page: Math.floor(skip / limit) + 1,
         totalPages: Math.ceil(total / limit)
@@ -188,7 +185,7 @@ class CommentService {
         .limit(limit)
         .skip(skip);
 
-      // ✅ Расшифровываем массив комментариев
+      // Расшифровываем массив комментариев
       await Promise.all(
         comments.map(comment => cryptoService.smartDecrypt(comment))
       );
@@ -231,7 +228,7 @@ class CommentService {
         .limit(limit)
         .skip(skip);
 
-      // ✅ Расшифровываем массив комментариев
+      // Расшифровываем массив комментариев
       await Promise.all(
         comments.map(comment => cryptoService.smartDecrypt(comment))
       );
@@ -255,28 +252,31 @@ class CommentService {
   /**
    * Удаление комментария админом
    */
-  // async moderateDeleteComment(req, res) {
-  //   try {
-  //     const { id } = req.params;
-  //     const adminId = req.user.userId;
+  async moderateDeleteComment(commentId, adminId, reason) {
+    try {
+      const comment = await CommentModel.findById(commentId);
+      if (!comment) throw new Error('Комментарий не найден');
 
-  //     // ✅ ИСПРАВЛЕНО: Безопасное получение reason
-  //     const reason = req.body ? req.body.reason : undefined;
+      const admin = await UserModel.findById(adminId);
+      if (!admin || admin.role !== 'admin') {
+        throw new Error('Только администратор может модерировать комментарии');
+      }
 
-  //     const result = await commentService.moderateDeleteComment(id, adminId, reason);
+      comment.isDeleted = true;
+      comment.deletedBy = adminId;
+      comment.deletedAt = new Date();
+      await comment.save();
 
-  //     return res.status(200).json({
-  //       success: true,
-  //       message: result.message
-  //     });
+      const deleteReason = reason || 'не указана';
+      console.log(`Комментарий удален админом: ${comment._id}. Причина: ${deleteReason}`);
 
-  //   } catch (error) {
-  //     return res.status(400).json({
-  //       success: false,
-  //       message: error.message || 'Ошибка модерации комментария'
-  //     });
-  //   }
-  // }
+      return { success: true, message: 'Комментарий удален администратором' };
+
+    } catch (error) {
+      console.error('Ошибка модерации комментария:', error);
+      throw error;
+    }
+  }
 
   // ==================== СТАТИСТИКА ====================
 

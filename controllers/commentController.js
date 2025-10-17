@@ -174,10 +174,12 @@ class CommentController {
     async moderateDeleteComment(req, res) {
         try {
             const { id } = req.params;
-            const { reason } = req.body;
             const adminId = req.user.userId;
 
-            const result = await commentService.moderateDeleteComment(id, adminId, reason || '');
+            // ✅ ИСПРАВЛЕНО: Безопасное получение reason
+            const reason = req.body && req.body.reason ? req.body.reason : '';
+
+            const result = await commentService.moderateDeleteComment(id, adminId, reason);
 
             return res.status(200).json({
                 success: true,
