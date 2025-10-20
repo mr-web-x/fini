@@ -15,6 +15,9 @@ export default {
     // Собираем покрытие только для этих файлов
     collectCoverageFrom: [
         'services/userService.js',
+        'services/authService.js',
+        'services/articleService.js',
+        'services/commentService.js',
         '!services/encryptableService.js',
         '!services/cryptoService.js'
     ],
