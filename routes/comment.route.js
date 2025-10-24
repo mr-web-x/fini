@@ -28,6 +28,21 @@ router.get(
     commentController.getArticleComments
 );
 
+// ==================== ПРИВАТНЫЕ МАРШРУТЫ ====================
+
+/**
+ * @route GET /api/comments
+ * @desc Получение комментариев пользователя по query параметру author
+ * @query ?author=userId или ?author=me (для текущего пользователя)
+ * @access Private
+ */
+router.get(
+    '/',
+    authenticate,
+    commonValidator.validatePagination,
+    commentController.getMyComments
+);
+
 /**
  * @route GET /api/comments/:id
  * @desc Получение комментария по ID
@@ -37,8 +52,6 @@ router.get(
     '/:id',
     commentController.getCommentById
 );
-
-// ==================== ПРИВАТНЫЕ МАРШРУТЫ ====================
 
 /**
  * @route POST /api/comments

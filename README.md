@@ -231,7 +231,7 @@ http://localhost:8000/health
 
 ### Базовый URL
 ```
-http://localhost:8000/api
+http://localhost:10001/api
 ```
 
 ### Endpoints

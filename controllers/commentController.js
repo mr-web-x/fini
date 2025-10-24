@@ -116,6 +116,40 @@ class CommentController {
         }
     }
 
+    /**
+     * НОВЫЙ МЕТОД: Получение комментариев текущего пользователя
+     * @route GET /api/comments?author=me
+     * @access Private
+     */
+    async getMyComments(req, res) {
+        try {
+            // Получаем userId из токена (middleware authenticate)
+            const userId = req.user.userId;
+            const { includeDeleted, limit, skip } = req.query;
+
+            const options = {
+                includeDeleted: includeDeleted === 'true',
+                limit: parseInt(limit) || 100,
+                skip: parseInt(skip) || 0
+            };
+
+            // Используем существующий метод getUserComments из сервиса
+            const result = await commentService.getUserComments(userId, options);
+
+            return res.status(200).json({
+                success: true,
+                message: 'Комментарии пользователя получены',
+                data: result
+            });
+
+        } catch (error) {
+            return res.status(400).json({
+                success: false,
+                message: error.message || 'Ошибка получения комментариев пользователя'
+            });
+        }
+    }
+
     async getUserComments(req, res) {
         try {
             const { userId } = req.params;
