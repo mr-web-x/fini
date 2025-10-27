@@ -226,6 +226,28 @@ class ArticleController {
         }
     }
 
+    async getMyArticles(req, res) {
+        try {
+            const userId = req.user.userId;
+            const { status } = req.query;
+
+            const result = await articleService.getArticlesByAuthor(userId, { status });
+
+            return res.status(200).json({
+                success: true,
+                message: 'Мои статьи получены',
+                data: result
+            });
+
+        } catch (error) {
+            return res.status(400).json({
+                success: false,
+                message: error.message || 'Ошибка получения статей автора'
+            });
+        }
+    }
+
+
     async getArticlesByAuthor(req, res) {
         try {
             const { authorId } = req.params;
@@ -249,6 +271,34 @@ class ArticleController {
             return res.status(400).json({
                 success: false,
                 message: error.message || 'Ошибка получения статей автора'
+            });
+        }
+    }
+
+    async getAllArticlesForAdmin(req, res) {
+        try {
+            const { limit, skip, sortBy, sortOrder, status, search } = req.query;
+
+            const options = {
+                limit: parseInt(limit) || 100,
+                skip: parseInt(skip) || 0,
+                sortBy: sortBy || 'createdAt',
+                sortOrder: parseInt(sortOrder) || -1,
+                status: status || null,
+                search: search || null
+            };
+
+            const result = await articleService.getAllArticlesForAdmin(options);
+
+            return res.status(200).json({
+                success: true,
+                message: 'Все статьи получены',
+                data: result
+            });
+        } catch (error) {
+            return res.status(400).json({
+                success: false,
+                message: error.message || 'Ошибка получения статей'
             });
         }
     }

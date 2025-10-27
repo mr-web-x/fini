@@ -16,18 +16,12 @@ import commonValidator from '../validation/commonValidator.js';
 
 const router = express.Router();
 
-// ==================== ПУБЛИЧНЫЕ МАРШРУТЫ ====================
+// ==================== ВАЖНО: ПОРЯДОК РОУТОВ! ====================
+// Специфичные роуты (search, popular, pending, admin/all) ДОЛЖНЫ быть
+// ПЕРЕД динамическими роутами (:id, :slug, :categoryId)
+// Иначе Express обработает их как параметры!
 
-/**
- * @route GET /api/articles
- * @desc Получение всех опубликованных статей
- * @access Public
- */
-router.get(
-    '/',
-    commonValidator.validatePagination,
-    articleController.getPublishedArticles
-);
+// ==================== ПУБЛИЧНЫЕ МАРШРУТЫ ====================
 
 /**
  * @route GET /api/articles/search
@@ -47,6 +41,21 @@ router.get(
 router.get(
     '/popular/list',
     articleController.getPopularArticles
+);
+
+// ==================== АДМИНСКИЕ МАРШРУТЫ ====================
+
+/**
+ * @route GET /api/articles/admin/all
+ * @desc Получение ВСЕХ статей в системе (для админа)
+ * @access Private (admin only)
+ */
+router.get(
+    '/admin/all',
+    authenticate,
+    requireAdmin,
+    commonValidator.validatePagination,
+    articleController.getAllArticlesForAdmin
 );
 
 /**
@@ -72,6 +81,47 @@ router.get(
     requireAdmin,
     articleController.getStatistics
 );
+
+/**
+ * @route POST /api/articles/:id/approve
+ * @desc Одобрение статьи (pending → published)
+ * @access Private (admin only)
+ */
+router.post(
+    '/:id/approve',
+    authenticate,
+    requireAdmin,
+    articleController.approveArticle
+);
+
+/**
+ * @route POST /api/articles/:id/reject
+ * @desc Отклонение статьи (pending → rejected)
+ * @access Private (admin only)
+ */
+router.post(
+    '/:id/reject',
+    authenticate,
+    requireAdmin,
+    articleValidator.validateRejectArticle,
+    articleController.rejectArticle
+);
+
+
+
+/**
+ * @route POST /api/articles/:id/submit
+ * @desc Отправка статьи на модерацию
+ * @access Private (author владелец)
+ */
+router.post(
+    '/:id/submit',
+    authenticate,
+    requireAuthor,
+    articleController.submitForReview
+);
+
+// ==================== ПУБЛИЧНЫЕ РОУТЫ С ПАРАМЕТРАМИ ====================
 
 /**
  * @route GET /api/articles/slug/:slug
@@ -106,16 +156,6 @@ router.get(
 );
 
 /**
- * @route GET /api/articles/:id
- * @desc Получение статьи по ID
- * @access Public
- */
-router.get(
-    '/:id',
-    articleController.getArticleById
-);
-
-/**
  * @route PUT /api/articles/:id/views
  * @desc Увеличение счетчика просмотров
  * @access Public
@@ -125,8 +165,25 @@ router.put(
     articleController.incrementViews
 );
 
+/**
+ * @route GET /api/articles/:id
+ * @desc Получение статьи по ID
+ * @access Public
+ */
+router.get(
+    '/:id',
+    articleController.getArticleById
+);
+
 // ==================== ПРИВАТНЫЕ МАРШРУТЫ (AUTHOR/ADMIN) ====================
 
+// ✅ NEW — маршрут для автора (его личные статьи)
+router.get(
+    '/me',
+    authenticate,
+    requireAuthor,
+    articleController.getMyArticles
+);
 /**
  * @route POST /api/articles
  * @desc Создание новой статьи
@@ -166,42 +223,14 @@ router.delete(
 );
 
 /**
- * @route POST /api/articles/:id/submit
- * @desc Отправка статьи на модерацию
- * @access Private (author владелец)
+ * @route GET /api/articles
+ * @desc Получение всех опубликованных статей
+ * @access Public
  */
-router.post(
-    '/:id/submit',
-    authenticate,
-    requireAuthor,
-    articleController.submitForReview
-);
-
-// ==================== АДМИНСКИЕ МАРШРУТЫ ====================
-
-/**
- * @route POST /api/articles/:id/approve
- * @desc Одобрение статьи (pending → published)
- * @access Private (admin only)
- */
-router.post(
-    '/:id/approve',
-    authenticate,
-    requireAdmin,
-    articleController.approveArticle
-);
-
-/**
- * @route POST /api/articles/:id/reject
- * @desc Отклонение статьи (pending → rejected)
- * @access Private (admin only)
- */
-router.post(
-    '/:id/reject',
-    authenticate,
-    requireAdmin,
-    articleValidator.validateRejectArticle,
-    articleController.rejectArticle
+router.get(
+    '/',
+    commonValidator.validatePagination,
+    articleController.getPublishedArticles
 );
 
 export default router;
