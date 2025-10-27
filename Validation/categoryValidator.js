@@ -1,3 +1,7 @@
+// ============================================
+// validation/categoryValidator.js
+// ============================================
+
 class CategoryValidator {
 
     validateCreateCategory(req, res, next) {
@@ -22,13 +26,16 @@ class CategoryValidator {
                 errors.push('Slug может содержать только латинские буквы, цифры и дефисы');
             }
 
-            // Description
-            if (!description || typeof description !== 'string') {
-                errors.push('Описание категории обязательно');
-            } else if (description.trim().length < 10) {
-                errors.push('Описание должно содержать минимум 10 символов');
-            } else if (description.length > 500) {
-                errors.push('Описание может содержать максимум 500 символов');
+            // ✅ ИСПРАВЛЕНО: Description теперь опционален
+            // Если передан description, проверяем его
+            if (description !== undefined && description !== null && description !== '') {
+                if (typeof description !== 'string') {
+                    errors.push('Описание должно быть строкой');
+                } else if (description.trim().length < 10) {
+                    errors.push('Если указываете описание, оно должно содержать минимум 10 символов');
+                } else if (description.length > 500) {
+                    errors.push('Описание может содержать максимум 500 символов');
+                }
             }
 
             // Order (опционально)
@@ -94,8 +101,8 @@ class CategoryValidator {
             if (description !== undefined) {
                 if (typeof description !== 'string') {
                     errors.push('Описание должно быть строкой');
-                } else if (description.trim().length < 10) {
-                    errors.push('Описание должно содержать минимум 10 символов');
+                } else if (description.trim().length > 0 && description.trim().length < 10) {
+                    errors.push('Если указываете описание, оно должно содержать минимум 10 символов');
                 } else if (description.length > 500) {
                     errors.push('Описание может содержать максимум 500 символов');
                 }

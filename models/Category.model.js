@@ -17,10 +17,12 @@ const categorySchema = new mongoose.Schema({
     trim: true
   },
 
+  // ✅ ИСПРАВЛЕНО: description теперь опционален
   description: {
     type: String,
-    required: [true, 'Описание категории обязательно'],
-    maxlength: [500, 'Описание может содержать максимум 500 символов']
+    trim: true,
+    maxlength: [500, 'Описание может содержать максимум 500 символов'],
+    default: ''  // ✅ Добавлено значение по умолчанию
   },
 
   seo: {
