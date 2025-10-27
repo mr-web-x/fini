@@ -107,8 +107,6 @@ router.post(
     articleController.rejectArticle
 );
 
-
-
 /**
  * @route POST /api/articles/:id/submit
  * @desc Отправка статьи на модерацию
@@ -155,6 +153,21 @@ router.get(
     articleController.getArticlesByAuthor
 );
 
+// ==================== ПРИВАТНЫЕ МАРШРУТЫ (AUTHOR/ADMIN) ====================
+
+/**
+ * @route GET /api/articles/me
+ * @desc Получение статей текущего пользователя
+ * @access Private (author, admin)
+ * ВАЖНО: Этот роут должен быть ПЕРЕД /:id, иначе "me" будет восприниматься как ID
+ */
+router.get(
+    '/me',
+    authenticate,
+    requireAuthor,
+    articleController.getMyArticles
+);
+
 /**
  * @route PUT /api/articles/:id/views
  * @desc Увеличение счетчика просмотров
@@ -175,15 +188,6 @@ router.get(
     articleController.getArticleById
 );
 
-// ==================== ПРИВАТНЫЕ МАРШРУТЫ (AUTHOR/ADMIN) ====================
-
-// ✅ NEW — маршрут для автора (его личные статьи)
-router.get(
-    '/me',
-    authenticate,
-    requireAuthor,
-    articleController.getMyArticles
-);
 /**
  * @route POST /api/articles
  * @desc Создание новой статьи
