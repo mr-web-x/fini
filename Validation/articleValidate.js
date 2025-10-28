@@ -1,5 +1,5 @@
 // ============================================
-// middlewares/validators/articleValidator.js
+// validation/articleValidate.js - ИСПРАВЛЕННЫЙ
 // ============================================
 
 class ArticleValidator {
@@ -19,20 +19,22 @@ class ArticleValidator {
                 errors.push('Заголовок может содержать максимум 200 символов');
             }
 
-            // Slug
-            if (!slug || typeof slug !== 'string') {
-                errors.push('Slug обязателен');
-            } else if (!/^[a-z0-9-]+$/.test(slug)) {
-                errors.push('Slug может содержать только латинские буквы, цифры и дефисы');
+            // ✅ ИСПРАВЛЕНО: Slug теперь ОПЦИОНАЛЕН (генерируется автоматически на backend)
+            if (slug !== undefined && slug !== null && slug !== '') {
+                if (typeof slug !== 'string') {
+                    errors.push('Slug должен быть строкой');
+                } else if (!/^[a-z0-9-]+$/.test(slug)) {
+                    errors.push('Slug может содержать только латинские буквы, цифры и дефисы');
+                }
             }
 
-            // Excerpt
+            // ✅ ИСПРАВЛЕНО: Excerpt максимум 320 символов (было 200)
             if (!excerpt || typeof excerpt !== 'string') {
                 errors.push('Краткое описание обязательно');
             } else if (excerpt.trim().length < 150) {
                 errors.push('Описание должно содержать минимум 150 символов');
-            } else if (excerpt.length > 200) {
-                errors.push('Описание может содержать максимум 200 символов');
+            } else if (excerpt.length > 320) {
+                errors.push('Описание может содержать максимум 320 символов');
             }
 
             // Content
@@ -106,14 +108,14 @@ class ArticleValidator {
                 }
             }
 
-            // Excerpt (опционально)
+            // ✅ ИСПРАВЛЕНО: Excerpt максимум 320 символов (было 200)
             if (excerpt !== undefined) {
                 if (typeof excerpt !== 'string') {
                     errors.push('Описание должно быть строкой');
                 } else if (excerpt.trim().length < 150) {
                     errors.push('Описание должно содержать минимум 150 символов');
-                } else if (excerpt.length > 200) {
-                    errors.push('Описание может содержать максимум 200 символов');
+                } else if (excerpt.length > 320) {
+                    errors.push('Описание может содержать максимум 320 символов');
                 }
             }
 

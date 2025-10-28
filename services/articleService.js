@@ -4,6 +4,19 @@ import Category from "../models/Category.model.js";
 import { writeLog } from "../middlewares/logger.js";
 import cryptoService from "./cryptoService.js"; // ✅ ДОБАВЛЕН ИМПОРТ
 
+
+// Добавь эту функцию в начало файла (после импортов)
+function generateSlug(text) {
+  return text
+    .toLowerCase()
+    .normalize('NFD') // Удаляем диакритические знаки
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^\w\s-]/g, '') // Удаляем спецсимволы
+    .replace(/\s+/g, '-') // Пробелы → дефисы
+    .replace(/-+/g, '-') // Множественные дефисы → один
+    .trim();
+}
+
 class ArticleService {
 
   // ==================== CRUD ОПЕРАЦИИ ====================
@@ -38,15 +51,26 @@ class ArticleService {
         throw new Error('Категория не найдена');
       }
 
-      // Проверяем уникальность slug
-      const existingArticle = await Article.findOne({ slug: articleData.slug });
-      if (existingArticle) {
-        throw new Error('Статья с таким slug уже существует');
+      // ✅ НОВОЕ: Генерация slug, если не передан
+      let slug = articleData.slug;
+      if (!slug || slug.trim() === '') {
+        slug = generateSlug(articleData.title);
+      }
+
+      // ✅ НОВОЕ: Проверка уникальности slug с добавлением суффикса
+      let uniqueSlug = slug;
+      let counter = 1;
+
+      // Проверяем, существует ли уже статья с таким slug
+      while (await Article.findOne({ slug: uniqueSlug })) {
+        uniqueSlug = `${slug}-${counter}`;
+        counter++;
       }
 
       // Создаем статью со статусом draft
       const article = await Article.create({
         ...articleData,
+        slug: uniqueSlug, // ✅ Используем уникальный сгенерированный slug
         author: authorId,
         status: 'draft'
       });
@@ -610,65 +634,65 @@ class ArticleService {
  * @param {Object} options - опции фильтрации
  * @returns {Object} - статьи с пагинацией
  */
-async getAllArticlesForAdmin(options) {
+  async getAllArticlesForAdmin(options) {
     try {
-        const {
-            limit,
-            skip,
-            sortBy,
-            sortOrder,
-            status,
-            search
-        } = options;
+      const {
+        limit,
+        skip,
+        sortBy,
+        sortOrder,
+        status,
+        search
+      } = options;
 
-        // Базовый фильтр (пустой - выбираем ВСЕ статьи)
-        const filter = {};
+      // Базовый фильтр (пустой - выбираем ВСЕ статьи)
+      const filter = {};
 
-        // Фильтр по статусу (если указан)
-        if (status && status !== 'all') {
-            filter.status = status;
+      // Фильтр по статусу (если указан)
+      if (status && status !== 'all') {
+        filter.status = status;
+      }
+
+      // Поиск по заголовку или содержимому
+      if (search) {
+        filter.$or = [
+          { title: { $regex: search, $options: 'i' } },
+          { excerpt: { $regex: search, $options: 'i' } },
+          { content: { $regex: search, $options: 'i' } }
+        ];
+      }
+
+      // Получаем статьи
+      const articles = await Article.find(filter)
+        .populate('author', 'firstName lastName email avatar role')
+        .populate('category', 'name slug')
+        .sort({ [sortBy]: sortOrder })
+        .limit(limit)
+        .skip(skip)
+        .lean();
+
+      // Получаем общее количество
+      const total = await Article.countDocuments(filter);
+
+      // Расшифровываем данные авторов
+      for (const article of articles) {
+        if (article.author) {
+          await cryptoService.smartDecrypt(article);
         }
+      }
 
-        // Поиск по заголовку или содержимому
-        if (search) {
-            filter.$or = [
-                { title: { $regex: search, $options: 'i' } },
-                { excerpt: { $regex: search, $options: 'i' } },
-                { content: { $regex: search, $options: 'i' } }
-            ];
-        }
-
-        // Получаем статьи
-        const articles = await Article.find(filter)
-            .populate('author', 'firstName lastName email avatar role')
-            .populate('category', 'name slug')
-            .sort({ [sortBy]: sortOrder })
-            .limit(limit)
-            .skip(skip)
-            .lean();
-
-        // Получаем общее количество
-        const total = await Article.countDocuments(filter);
-
-        // Расшифровываем данные авторов
-        for (const article of articles) {
-            if (article.author) {
-                await cryptoService.smartDecrypt(article);
-            }
-        }
-
-        return {
-            articles,
-            total,
-            page: Math.floor(skip / limit) + 1,
-            pages: Math.ceil(total / limit)
-        };
+      return {
+        articles,
+        total,
+        page: Math.floor(skip / limit) + 1,
+        pages: Math.ceil(total / limit)
+      };
 
     } catch (error) {
-        console.error('Ошибка получения всех статей для админа:', error);
-        throw error;
+      console.error('Ошибка получения всех статей для админа:', error);
+      throw error;
     }
-}
+  }
 
 
   // ==================== СТАТИСТИКА ====================
