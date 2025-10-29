@@ -7,11 +7,14 @@ import userRoutes from './user.route.js';
 import articleRoutes from './article.route.js';
 import categoryRoutes from './category.route.js';
 import commentRoutes from './comment.route.js';
+import adminUserRoutes from './adminUser.route.js';
+
 
 export {
     authRoutes,
     userRoutes,
     articleRoutes,
     categoryRoutes,
-    commentRoutes
+    commentRoutes,
+    adminUserRoutes
 };
