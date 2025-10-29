@@ -145,69 +145,61 @@ class ArticleService {
    * @param {string} userId - ID пользователя (для проверки прав)
    * @returns {Object} - обновленная статья
    */
-  async updateArticle(articleId, updateData, userId) {
+async updateArticle(articleId, updateData, userId) {
     try {
-      const article = await Article.findById(articleId);
-
-      if (!article) {
-        throw new Error('Статья не найдена');
-      }
-
-      // КРИТИЧНО: нельзя редактировать published статьи
-      if (article.status === 'published') {
-        throw new Error('Опубликованные статьи нельзя редактировать');
-      }
-
-      const user = await User.findById(userId);
-
-      // Проверка прав
-      const isAuthor = article.author.toString() === userId.toString();
-      const isAdmin = user.role === 'admin';
-
-      if (!isAuthor && !isAdmin) {
-        throw new Error('У вас нет прав на редактирование этой статьи');
-      }
-
-      // Статью на модерации (pending) может редактировать только админ
-      if (article.status === 'pending' && !isAdmin) {
-        throw new Error('Статья на модерации. Дождитесь решения администратора.');
-      }
-
-      // Проверяем slug на уникальность (если меняется)
-      if (updateData.slug && updateData.slug !== article.slug) {
-        const existingArticle = await Article.findOne({
-          slug: updateData.slug,
-          _id: { $ne: articleId }
+        // ✅ ДОБАВЬ ЛОГИРОВАНИЕ В НАЧАЛЕ:
+        console.log('🔴 [Backend Service] updateArticle:', {
+            articleId,
+            userId,
+            updateDataKeys: Object.keys(updateData)
         });
 
-        if (existingArticle) {
-          throw new Error('Статья с таким slug уже существует');
+        const article = await Article.findById(articleId);
+
+        if (!article) {
+            throw new Error('Статья не найдена');
         }
-      }
 
-      // Обновляем разрешенные поля
-      const allowedFields = [
-        'title', 'slug', 'excerpt', 'content', 'category',
-        'tags', 'seo'
-      ];
+        console.log('🔴 [Backend Service] Статья найдена:', {
+            articleId: article._id,
+            currentTitle: article.title,
+            status: article.status,
+            author: article.author
+        });
 
-      allowedFields.forEach(field => {
-        if (updateData[field] !== undefined) {
-          article[field] = updateData[field];
-        }
-      });
+        // ...проверки прав...
 
-      await article.save();
+        // Обновляем разрешенные поля
+        const allowedFields = [
+            'title', 'slug', 'excerpt', 'content', 'category',
+            'tags', 'seo'
+        ];
 
-      console.log(`Статья обновлена: ${article.title}`);
+        allowedFields.forEach(field => {
+            if (updateData[field] !== undefined) {
+                console.log(`🔴 [Backend Service] Обновление поля ${field}:`, {
+                    old: article[field],
+                    new: updateData[field]
+                });
+                article[field] = updateData[field];
+            }
+        });
 
-      return await this.getArticleById(article._id);
+        // ✅ ЛОГИРОВАНИЕ ПЕРЕД СОХРАНЕНИЕМ:
+        console.log('🔴 [Backend Service] Сохранение статьи...');
+        await article.save();
+        console.log('✅ [Backend Service] Статья СОХРАНЕНА:', article._id);
+
+        return await this.getArticleById(article._id);
 
     } catch (error) {
-      console.error('Ошибка обновления статьи:', error);
-      throw error;
+        console.error('❌ [Backend Service] updateArticle error:', {
+            message: error.message,
+            stack: error.stack
+        });
+        throw error;
     }
-  }
+}
 
   /**
    * Удаление статьи

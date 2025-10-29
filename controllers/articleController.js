@@ -71,7 +71,17 @@ class ArticleController {
             const userId = req.user.userId;
             const updateData = req.body;
 
+            // ✅ ДОБАВЬ ЛОГИРОВАНИЕ:
+            console.log('🟡 [Backend Controller] updateArticle:', {
+                articleId: id,
+                userId,
+                updateData
+            });
+
             const article = await articleService.updateArticle(id, updateData, userId);
+
+            // ✅ ДОБАВЬ ЛОГИРОВАНИЕ УСПЕХА:
+            console.log('🟡 [Backend Controller] Статья обновлена:', article._id);
 
             return res.status(200).json({
                 success: true,
@@ -80,6 +90,11 @@ class ArticleController {
             });
 
         } catch (error) {
+            // ✅ ДОБАВЬ ДЕТАЛЬНОЕ ЛОГИРОВАНИЕ:
+            console.error('❌ [Backend Controller] updateArticle error:', {
+                message: error.message,
+                stack: error.stack
+            });
             return res.status(400).json({
                 success: false,
                 message: error.message || 'Ошибка обновления статьи'
