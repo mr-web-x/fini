@@ -17,7 +17,7 @@ const commentSchema = new mongoose.Schema({
     type: String,
     required: [true, 'Содержимое комментария обязательно'],
     trim: true,
-    minlength: [1, 'Комментарий не может быть пустым'],
+    minlength: [3, 'Komentár musí obsahovať minimálne 3 znaky'],
     maxlength: [2000, 'Комментарий может содержать максимум 2000 символов']
   },
 

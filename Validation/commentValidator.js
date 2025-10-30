@@ -1,5 +1,5 @@
 // ============================================
-// validation/commentValidator.js
+// validation/commentValidator.js - ОБНОВЛЕННЫЙ
 // ============================================
 
 class CommentValidator {
@@ -18,8 +18,8 @@ class CommentValidator {
             // Content
             if (!content || typeof content !== 'string') {
                 errors.push('Содержимое комментария обязательно');
-            } else if (content.trim().length < 1) {
-                errors.push('Комментарий не может быть пустым');
+            } else if (content.trim().length < 3) {
+                errors.push('Komentár musí obsahovať minimálne 3 znaky');
             } else if (content.length > 2000) {
                 errors.push('Комментарий может содержать максимум 2000 символов');
             }
@@ -58,10 +58,10 @@ class CommentValidator {
                 });
             }
 
-            if (content.trim().length < 1) {
+            if (content.trim().length < 3) {
                 return res.status(400).json({
                     success: false,
-                    message: 'Комментарий не может быть пустым'
+                    message: 'Komentár musí obsahovať minimálne 3 znaky'
                 });
             }
 
