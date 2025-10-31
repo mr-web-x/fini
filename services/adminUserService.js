@@ -41,22 +41,54 @@ class AdminUserService {
                 filter['isBlocked.status'] = isBlocked === 'true' || isBlocked === true;
             }
 
-            // Поиск по имени или email
+            // ✅ ИСПРАВЛЕНО: Полнотекстовый поиск для зашифрованных данных
             if (search && search.trim()) {
-                filter.$or = [
-                    { firstName: { $regex: search, $options: 'i' } },
-                    { lastName: { $regex: search, $options: 'i' } },
-                    { email: { $regex: search, $options: 'i' } }
-                ];
+                // Получаем ВСЕХ пользователей и фильтруем на уровне JavaScript
+                // Это не оптимально для больших баз, но работает с зашифрованными данными
+                const allUsers = await UserModel.find(filter)
+                    .select('-__v')
+                    .sort({ [sortBy]: sortOrder });
+
+                // Расшифровываем и фильтруем
+                const decryptedUsers = [];
+                for (const user of allUsers) {
+                    await cryptoService.smartDecrypt(user);
+                    const userData = this.formatUserResponse(user);
+
+                    // Поиск по расшифрованным данным
+                    const searchLower = search.toLowerCase();
+                    if (
+                        userData.firstName?.toLowerCase().includes(searchLower) ||
+                        userData.lastName?.toLowerCase().includes(searchLower) ||
+                        userData.email?.toLowerCase().includes(searchLower) ||
+                        userData.displayName?.toLowerCase().includes(searchLower)
+                    ) {
+                        decryptedUsers.push(userData);
+                    }
+                }
+
+                // Применяем пагинацию
+                const startIndex = skip;
+                const endIndex = skip + parseInt(limit);
+                const paginatedUsers = decryptedUsers.slice(startIndex, endIndex);
+
+                return {
+                    users: paginatedUsers,
+                    pagination: {
+                        total: decryptedUsers.length,
+                        page: parseInt(page),
+                        pages: Math.ceil(decryptedUsers.length / limit),
+                        limit: parseInt(limit)
+                    }
+                };
             }
 
-            // Запрос пользователей
+            // Обычный запрос без поиска
             const users = await UserModel.find(filter)
                 .select('-__v')
                 .sort({ [sortBy]: sortOrder })
                 .skip(skip)
-                .limit(parseInt(limit))
-                .lean();
+                .limit(parseInt(limit));
 
             // Получаем общее количество
             const total = await UserModel.countDocuments(filter);
@@ -105,7 +137,7 @@ class AdminUserService {
     }
 
     /**
-     * Поиск пользователей
+     * Поиск пользователей (альтернативный метод)
      * @param {string} query - поисковый запрос
      * @param {Object} options - дополнительные опции
      * @returns {Array} - найденные пользователи
@@ -114,30 +146,35 @@ class AdminUserService {
         try {
             const { limit = 10, role = null } = options;
 
-            const filter = {
-                $or: [
-                    { firstName: { $regex: query, $options: 'i' } },
-                    { lastName: { $regex: query, $options: 'i' } },
-                    { email: { $regex: query, $options: 'i' } }
-                ]
-            };
-
-            // Фильтр по роли если указан
+            // Базовый фильтр
+            const filter = {};
             if (role && ['user', 'author', 'admin'].includes(role)) {
                 filter.role = role;
             }
 
+            // Получаем всех пользователей и фильтруем на JS
             const users = await UserModel.find(filter)
                 .select('-__v')
-                .limit(parseInt(limit))
-                .lean();
+                .limit(parseInt(limit));
 
-            // Расшифровываем данные
+            // Расшифровываем и фильтруем
+            const decryptedUsers = [];
             for (const user of users) {
                 await cryptoService.smartDecrypt(user);
+                const userData = this.formatUserResponse(user);
+
+                const searchLower = query.toLowerCase();
+                if (
+                    userData.firstName?.toLowerCase().includes(searchLower) ||
+                    userData.lastName?.toLowerCase().includes(searchLower) ||
+                    userData.email?.toLowerCase().includes(searchLower) ||
+                    userData.displayName?.toLowerCase().includes(searchLower)
+                ) {
+                    decryptedUsers.push(userData);
+                }
             }
 
-            return users.map(user => this.formatUserResponse(user));
+            return decryptedUsers;
 
         } catch (error) {
             console.error('Ошибка поиска пользователей:', error);
@@ -371,8 +408,7 @@ class AdminUserService {
             const recentUsers = await UserModel.find()
                 .select('email firstName lastName role createdAt')
                 .sort({ createdAt: -1 })
-                .limit(5)
-                .lean();
+                .limit(5);
 
             // Расшифровываем данные
             for (const user of recentUsers) {

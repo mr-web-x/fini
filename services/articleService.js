@@ -2,7 +2,7 @@ import Article from "../models/Article.model.js";
 import User from "../models/User.model.js";
 import Category from "../models/Category.model.js";
 import { writeLog } from "../middlewares/logger.js";
-import cryptoService from "./cryptoService.js"; // ✅ ДОБАВЛЕН ИМПОРТ
+import cryptoService from "./cryptoService.js";
 
 
 // Добавь эту функцию в начало файла (после импортов)
@@ -101,8 +101,13 @@ class ArticleService {
         throw new Error('Статья не найдена');
       }
 
-      // ✅ Расшифровываем автора
+      // ✅ Расшифровываем статью
       await cryptoService.smartDecrypt(article);
+
+      // ✅ ИСПРАВЛЕНИЕ: Явная расшифровка автора
+      if (article.author && typeof article.author.decrypt === 'function') {
+        await article.author.decrypt();
+      }
 
       return article;
 
@@ -127,8 +132,13 @@ class ArticleService {
         throw new Error('Статья не найдена');
       }
 
-      // ✅ Расшифровываем автора
+      // ✅ Расшифровываем статью
       await cryptoService.smartDecrypt(article);
+
+      // ✅ ИСПРАВЛЕНИЕ: Явная расшифровка автора
+      if (article.author && typeof article.author.decrypt === 'function') {
+        await article.author.decrypt();
+      }
 
       return article;
 
@@ -145,61 +155,79 @@ class ArticleService {
    * @param {string} userId - ID пользователя (для проверки прав)
    * @returns {Object} - обновленная статья
    */
-async updateArticle(articleId, updateData, userId) {
+  async updateArticle(articleId, updateData, userId) {
     try {
-        // ✅ ДОБАВЬ ЛОГИРОВАНИЕ В НАЧАЛЕ:
-        console.log('🔴 [Backend Service] updateArticle:', {
-            articleId,
-            userId,
-            updateDataKeys: Object.keys(updateData)
-        });
+      // ✅ ДОБАВЬ ЛОГИРОВАНИЕ В НАЧАЛЕ:
+      console.log('🔴 [Backend Service] updateArticle:', {
+        articleId,
+        userId,
+        updateDataKeys: Object.keys(updateData)
+      });
 
-        const article = await Article.findById(articleId);
+      const article = await Article.findById(articleId);
 
-        if (!article) {
-            throw new Error('Статья не найдена');
+      if (!article) {
+        throw new Error('Статья не найдена');
+      }
+
+      console.log('🔴 [Backend Service] Статья найдена:', {
+        articleId: article._id,
+        currentTitle: article.title,
+        status: article.status,
+        author: article.author
+      });
+
+      // КРИТИЧНО: нельзя редактировать published статьи
+      if (article.status === 'published') {
+        throw new Error('Опубликованные статьи нельзя редактировать');
+      }
+
+      const user = await User.findById(userId);
+
+      // Проверка прав
+      const isAuthor = article.author.toString() === userId.toString();
+      const isAdmin = user.role === 'admin';
+
+      if (!isAuthor && !isAdmin) {
+        throw new Error('У вас нет прав на редактирование этой статьи');
+      }
+
+      // Статью на модерации (pending) может редактировать только админ
+      if (article.status === 'pending' && !isAdmin) {
+        throw new Error('Статья на модерации. Дождитесь решения администратора.');
+      }
+
+      // Обновляем разрешенные поля
+      const allowedFields = [
+        'title', 'slug', 'excerpt', 'content', 'category',
+        'tags', 'seo'
+      ];
+
+      allowedFields.forEach(field => {
+        if (updateData[field] !== undefined) {
+          console.log(`🔴 [Backend Service] Обновление поля ${field}:`, {
+            old: article[field],
+            new: updateData[field]
+          });
+          article[field] = updateData[field];
         }
+      });
 
-        console.log('🔴 [Backend Service] Статья найдена:', {
-            articleId: article._id,
-            currentTitle: article.title,
-            status: article.status,
-            author: article.author
-        });
+      // ✅ ЛОГИРОВАНИЕ ПЕРЕД СОХРАНЕНИЕМ:
+      console.log('🔴 [Backend Service] Сохранение статьи...');
+      await article.save();
+      console.log('✅ [Backend Service] Статья СОХРАНЕНА:', article._id);
 
-        // ...проверки прав...
-
-        // Обновляем разрешенные поля
-        const allowedFields = [
-            'title', 'slug', 'excerpt', 'content', 'category',
-            'tags', 'seo'
-        ];
-
-        allowedFields.forEach(field => {
-            if (updateData[field] !== undefined) {
-                console.log(`🔴 [Backend Service] Обновление поля ${field}:`, {
-                    old: article[field],
-                    new: updateData[field]
-                });
-                article[field] = updateData[field];
-            }
-        });
-
-        // ✅ ЛОГИРОВАНИЕ ПЕРЕД СОХРАНЕНИЕМ:
-        console.log('🔴 [Backend Service] Сохранение статьи...');
-        await article.save();
-        console.log('✅ [Backend Service] Статья СОХРАНЕНА:', article._id);
-
-        return await this.getArticleById(article._id);
+      return await this.getArticleById(article._id);
 
     } catch (error) {
-        console.error('❌ [Backend Service] updateArticle error:', {
-            message: error.message,
-            stack: error.stack
-        });
-        throw error;
+      console.error('❌ [Backend Service] updateArticle error:', {
+        message: error.message,
+        stack: error.stack
+      });
+      throw error;
     }
-}
+  }
 
   /**
    * Удаление статьи
@@ -419,9 +447,16 @@ async updateArticle(articleId, updateData, userId) {
         .limit(limit)
         .skip(skip);
 
-      // ✅ Расшифровываем массив статей
+      // ✅ ИСПРАВЛЕНИЕ: Расшифровываем статьи И отдельно авторов
       await Promise.all(
-        articles.map(article => cryptoService.smartDecrypt(article))
+        articles.map(async (article) => {
+          await cryptoService.smartDecrypt(article);
+
+          // ✅ ДОБАВЛЕНО: Явная расшифровка автора
+          if (article.author && typeof article.author.decrypt === 'function') {
+            await article.author.decrypt();
+          }
+        })
       );
 
       const total = await Article.countDocuments({ status: 'published' });
@@ -464,9 +499,16 @@ async updateArticle(articleId, updateData, userId) {
         .limit(limit)
         .skip(skip);
 
-      // ✅ Расшифровываем массив статей
+      // ✅ ИСПРАВЛЕНИЕ: Расшифровываем статьи И отдельно авторов
       await Promise.all(
-        articles.map(article => cryptoService.smartDecrypt(article))
+        articles.map(async (article) => {
+          await cryptoService.smartDecrypt(article);
+
+          // ✅ ДОБАВЛЕНО: Явная расшифровка автора
+          if (article.author && typeof article.author.decrypt === 'function') {
+            await article.author.decrypt();
+          }
+        })
       );
 
       const total = await Article.countDocuments({
@@ -541,9 +583,16 @@ async updateArticle(articleId, updateData, userId) {
         .populate('category', 'name slug')
         .sort({ submittedAt: 1 });
 
-      // ✅ Расшифровываем массив статей
+      // ✅ ИСПРАВЛЕНИЕ: Расшифровываем статьи И отдельно авторов
       await Promise.all(
-        articles.map(article => cryptoService.smartDecrypt(article))
+        articles.map(async (article) => {
+          await cryptoService.smartDecrypt(article);
+
+          // ✅ ДОБАВЛЕНО: Явная расшифровка автора
+          if (article.author && typeof article.author.decrypt === 'function') {
+            await article.author.decrypt();
+          }
+        })
       );
 
       return articles;
@@ -574,9 +623,16 @@ async updateArticle(articleId, updateData, userId) {
         .sort({ views: -1 })
         .limit(limit);
 
-      // ✅ Расшифровываем массив статей
+      // ✅ ИСПРАВЛЕНИЕ: Расшифровываем статьи И отдельно авторов
       await Promise.all(
-        articles.map(article => cryptoService.smartDecrypt(article))
+        articles.map(async (article) => {
+          await cryptoService.smartDecrypt(article);
+
+          // ✅ ДОБАВЛЕНО: Явная расшифровка автора
+          if (article.author && typeof article.author.decrypt === 'function') {
+            await article.author.decrypt();
+          }
+        })
       );
 
       return articles;
@@ -608,9 +664,16 @@ async updateArticle(articleId, updateData, userId) {
         .limit(limit)
         .skip(skip);
 
-      // ✅ Расшифровываем массив статей
+      // ✅ ИСПРАВЛЕНИЕ: Расшифровываем статьи И отдельно авторов
       await Promise.all(
-        articles.map(article => cryptoService.smartDecrypt(article))
+        articles.map(async (article) => {
+          await cryptoService.smartDecrypt(article);
+
+          // ✅ ДОБАВЛЕНО: Явная расшифровка автора
+          if (article.author && typeof article.author.decrypt === 'function') {
+            await article.author.decrypt();
+          }
+        })
       );
 
       return articles;
@@ -622,10 +685,10 @@ async updateArticle(articleId, updateData, userId) {
   }
 
   /**
- * Получение ВСЕХ статей для админа (с фильтрацией)
- * @param {Object} options - опции фильтрации
- * @returns {Object} - статьи с пагинацией
- */
+   * Получение ВСЕХ статей для админа (с фильтрацией)
+   * @param {Object} options - опции фильтрации
+   * @returns {Object} - статьи с пагинацией
+   */
   async getAllArticlesForAdmin(options) {
     try {
       const {
@@ -660,18 +723,22 @@ async updateArticle(articleId, updateData, userId) {
         .populate('category', 'name slug')
         .sort({ [sortBy]: sortOrder })
         .limit(limit)
-        .skip(skip)
-        .lean();
+        .skip(skip);
+
+      // ✅ ИСПРАВЛЕНИЕ: Расшифровываем статьи И отдельно авторов
+      await Promise.all(
+        articles.map(async (article) => {
+          await cryptoService.smartDecrypt(article);
+
+          // ✅ ДОБАВЛЕНО: Явная расшифровка автора
+          if (article.author && typeof article.author.decrypt === 'function') {
+            await article.author.decrypt();
+          }
+        })
+      );
 
       // Получаем общее количество
       const total = await Article.countDocuments(filter);
-
-      // Расшифровываем данные авторов
-      for (const article of articles) {
-        if (article.author) {
-          await cryptoService.smartDecrypt(article);
-        }
-      }
 
       return {
         articles,
