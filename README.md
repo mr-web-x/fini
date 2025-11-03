@@ -174,7 +174,7 @@ npm install
 ```env
 # Server
 NODE_ENV=development
-PORT=8000
+PORT=10001
 CLIENT_URL=http://localhost:3000
 
 # Database
@@ -208,7 +208,7 @@ npm start
 
 Откройте в браузере:
 ```
-http://localhost:8000/health
+http://localhost:10001/health
 ```
 
 Должен вернуться JSON:
@@ -296,7 +296,7 @@ http://localhost:10001/api
 
 #### Авторизация через Google
 ```bash
-curl -X POST http://localhost:8000/api/auth/google \
+curl -X POST http://localhost:10001/api/auth/google \
   -H "Content-Type: application/json" \
   -d '{"token": "google-oauth-token-here"}'
 ```
@@ -319,7 +319,7 @@ curl -X POST http://localhost:8000/api/auth/google \
 
 #### Создание статьи
 ```bash
-curl -X POST http://localhost:8000/api/articles \
+curl -X POST http://localhost:10001/api/articles \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer your-jwt-token" \
   -d '{
