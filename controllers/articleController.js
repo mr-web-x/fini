@@ -188,13 +188,24 @@ class ArticleController {
 
     async getPublishedArticles(req, res) {
         try {
-            const { limit, skip, sortBy, sortOrder } = req.query;
+            const {
+                limit,
+                skip,
+                sortBy,
+                sortOrder,
+                category, // ✅ ДОБАВИТЬ поддержку категории
+                author,   // можно добавить и другие фильтры
+                search
+            } = req.query;
 
             const options = {
                 limit: parseInt(limit) || 20,
                 skip: parseInt(skip) || 0,
                 sortBy: sortBy || 'publishedAt',
-                sortOrder: parseInt(sortOrder) || -1
+                sortOrder: parseInt(sortOrder) || -1,
+                category: category || null, // ✅ Передаем категорию в сервис
+                author: author || null,
+                search: search || null
             };
 
             const result = await articleService.getPublishedArticles(options);

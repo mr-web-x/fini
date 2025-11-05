@@ -3,6 +3,7 @@ import User from "../models/User.model.js";
 import Category from "../models/Category.model.js";
 import { writeLog } from "../middlewares/logger.js";
 import cryptoService from "./cryptoService.js";
+import mongoose from 'mongoose';
 
 
 // Добавь эту функцию в начало файла (после импортов)
@@ -437,10 +438,47 @@ class ArticleService {
         limit = 20,
         skip = 0,
         sortBy = 'publishedAt',
-        sortOrder = -1
+        sortOrder = -1,
+        category = null, // ✅ ДОБАВЛЕНО: параметр категории
+        author = null,   // ✅ ДОБАВЛЕНО: параметр автора
+        search = null    // ✅ ДОБАВЛЕНО: параметр поиска
       } = options;
 
-      const articles = await Article.find({ status: 'published' })
+      // ✅ СОЗДАЕМ ДИНАМИЧЕСКИЙ ФИЛЬТР
+      const filter = { status: 'published' };
+
+      // ✅ ФИЛЬТРАЦИЯ ПО КАТЕГОРИИ
+      if (category) {
+        // Проверяем валидность ObjectId
+        if (mongoose.Types.ObjectId.isValid(category)) {
+          filter.category = new mongoose.Types.ObjectId(category);
+        } else {
+          filter.category = category;
+        }
+      }
+
+      // ✅ ФИЛЬТРАЦИЯ ПО АВТОРУ (опционально)
+      if (author) {
+        if (mongoose.Types.ObjectId.isValid(author)) {
+          filter.author = new mongoose.Types.ObjectId(author);
+        } else {
+          filter.author = author;
+        }
+      }
+
+      // ✅ ПОИСК ПО ТЕКСТУ (опционально)
+      if (search) {
+        filter.$or = [
+          { title: { $regex: search, $options: 'i' } },
+          { excerpt: { $regex: search, $options: 'i' } },
+          { content: { $regex: search, $options: 'i' } },
+          { tags: { $regex: search, $options: 'i' } }
+        ];
+      }
+
+      console.log('🔍 Filter for articles:', filter); // Для отладки
+
+      const articles = await Article.find(filter)
         .populate('author', 'firstName lastName avatar')
         .populate('category', 'name slug')
         .sort({ [sortBy]: sortOrder })
@@ -459,13 +497,19 @@ class ArticleService {
         })
       );
 
-      const total = await Article.countDocuments({ status: 'published' });
+      // ✅ ИСПРАВЛЕНО: Используем тот же фильтр для подсчета
+      const total = await Article.countDocuments(filter);
 
       return {
         articles,
         total,
         page: Math.floor(skip / limit) + 1,
-        totalPages: Math.ceil(total / limit)
+        totalPages: Math.ceil(total / limit),
+        filters: { // ✅ ДОБАВЛЕНО: возвращаем примененные фильтры
+          category: category || null,
+          author: author || null,
+          search: search || null
+        }
       };
 
     } catch (error) {
