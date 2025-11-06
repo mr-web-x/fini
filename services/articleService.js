@@ -136,10 +136,6 @@ class ArticleService {
       // ✅ Расшифровываем статью
       await cryptoService.smartDecrypt(article);
 
-      // ✅ ИСПРАВЛЕНИЕ: Явная расшифровка автора
-      if (article.author && typeof article.author.decrypt === 'function') {
-        await article.author.decrypt();
-      }
 
       return article;
 
