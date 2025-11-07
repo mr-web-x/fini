@@ -125,9 +125,9 @@ class ArticleService {
       await cryptoService.smartDecrypt(article);
 
       // ✅ ИСПРАВЛЕНИЕ: Явная расшифровка автора
-      if (article.author && typeof article.author.decrypt === 'function') {
-        await article.author.decrypt();
-      }
+      // if (article.author && typeof article.author.decrypt === 'function') {
+      //   await article.author.decrypt();
+      // }
 
       return article;
 
@@ -442,37 +442,58 @@ class ArticleService {
 
   // ==================== ПОЛУЧЕНИЕ СПИСКОВ ====================
 
-  /**
-   * Получение всех опубликованных статей
-   * @param {Object} options - параметры (limit, skip, sort)
-   * @returns {Array} - массив статей
-   */
+
   async getPublishedArticles(options = {}) {
     try {
       const {
+        page = 1,
         limit = 20,
-        skip = 0,
-        sortBy = 'publishedAt',
-        sortOrder = -1,
-        category = null, // ✅ ДОБАВЛЕНО: параметр категории
-        author = null,   // ✅ ДОБАВЛЕНО: параметр автора
-        search = null    // ✅ ДОБАВЛЕНО: параметр поиска
+        sortBy = 'createdAt',
+        category = null,
+        author = null,
+        search = null
       } = options;
 
-      // ✅ СОЗДАЕМ ДИНАМИЧЕСКИЙ ФИЛЬТР
+      // Вычисляем skip из page
+      const skip = (page - 1) * limit;
+
+      // ✅ ИСПРАВЛЕНО: Определяем направление сортировки
+      let sortField = sortBy;
+      let sortOrder = -1; // По умолчанию DESC
+
+      // Определяем порядок сортировки в зависимости от поля
+      if (sortBy === 'title') {
+        sortOrder = 1;  // A-Z для названий
+      } else if (sortBy === 'views') {
+        sortOrder = -1; // От большего к меньшему
+      } else if (sortBy === 'createdAt' || sortBy === 'publishedAt') {
+        sortOrder = -1; // Новые первыми
+      }
+
+      console.log(`📊 Sort: ${sortField} | Order: ${sortOrder === -1 ? 'DESC' : 'ASC'}`);
+
+      // СОЗДАЕМ ДИНАМИЧЕСКИЙ ФИЛЬТР
       const filter = { status: 'published' };
 
-      // ✅ ФИЛЬТРАЦИЯ ПО КАТЕГОРИИ
+      // ФИЛЬТРАЦИЯ ПО КАТЕГОРИИ через SLUG
       if (category) {
-        // Проверяем валидность ObjectId
-        if (mongoose.Types.ObjectId.isValid(category)) {
-          filter.category = new mongoose.Types.ObjectId(category);
+        const Category = mongoose.model('Category');
+        const foundCategory = await Category.findOne({ slug: category });
+
+        if (foundCategory) {
+          filter.category = foundCategory._id;
+          console.log(`🏷️ Category filter: ${category} → ${foundCategory._id}`);
         } else {
-          filter.category = category;
+          if (mongoose.Types.ObjectId.isValid(category)) {
+            filter.category = new mongoose.Types.ObjectId(category);
+            console.log(`🏷️ Category filter by ID: ${category}`);
+          } else {
+            console.log(`⚠️ Category not found: ${category}`);
+          }
         }
       }
 
-      // ✅ ФИЛЬТРАЦИЯ ПО АВТОРУ (опционально)
+      // ФИЛЬТРАЦИЯ ПО АВТОРУ
       if (author) {
         if (mongoose.Types.ObjectId.isValid(author)) {
           filter.author = new mongoose.Types.ObjectId(author);
@@ -481,7 +502,7 @@ class ArticleService {
         }
       }
 
-      // ✅ ПОИСК ПО ТЕКСТУ (опционально)
+      // ПОИСК ПО ТЕКСТУ
       if (search) {
         filter.$or = [
           { title: { $regex: search, $options: 'i' } },
@@ -491,44 +512,55 @@ class ArticleService {
         ];
       }
 
-      console.log('🔍 Filter for articles:', filter); // Для отладки
+      console.log('🔍 MongoDB Filter:', JSON.stringify(filter));
 
-      const articles = await Article.find(filter)
+      // ✅ ИСПРАВЛЕНО: Добавляем collation для правильной сортировки словацкого языка
+      const query = Article.find(filter)
         .populate('author', 'firstName lastName avatar')
         .populate('category', 'name slug')
-        .sort({ [sortBy]: sortOrder })
+        .sort({ [sortField]: sortOrder })
         .limit(limit)
         .skip(skip);
 
-      // ✅ ИСПРАВЛЕНИЕ: Расшифровываем статьи И отдельно авторов
+      // ✅ НОВОЕ: Применяем collation только для сортировки по title
+      if (sortBy === 'title') {
+        // Collation для словацкого языка
+        query.collation({
+          locale: 'sk',      // Словацкая локаль
+          strength: 1        // Игнорировать диакритику при сравнении (á = a)
+        });
+        console.log('🔤 Applied Slovak collation for title sorting');
+      }
+
+      const articles = await query;
+
+      // Получаем общее количество
+      const total = await Article.countDocuments(filter);
+
+      // Расшифровываем статьи и авторов
       await Promise.all(
         articles.map(async (article) => {
           await cryptoService.smartDecrypt(article);
 
-          // ✅ ДОБАВЛЕНО: Явная расшифровка автора
           if (article.author && typeof article.author.decrypt === 'function') {
             await article.author.decrypt();
           }
         })
       );
 
-      // ✅ ИСПРАВЛЕНО: Используем тот же фильтр для подсчета
-      const total = await Article.countDocuments(filter);
+      const totalPages = Math.ceil(total / limit);
+
+      console.log(`✅ Found ${articles.length} articles | Total: ${total} | Page: ${page}/${totalPages}`);
 
       return {
         articles,
         total,
-        page: Math.floor(skip / limit) + 1,
-        totalPages: Math.ceil(total / limit),
-        filters: { // ✅ ДОБАВЛЕНО: возвращаем примененные фильтры
-          category: category || null,
-          author: author || null,
-          search: search || null
-        }
+        page,
+        totalPages
       };
 
     } catch (error) {
-      console.error('Ошибка получения опубликованных статей:', error);
+      console.error('❌ Error in getPublishedArticles:', error);
       throw error;
     }
   }
@@ -564,9 +596,9 @@ class ArticleService {
           await cryptoService.smartDecrypt(article);
 
           // ✅ ДОБАВЛЕНО: Явная расшифровка автора
-          if (article.author && typeof article.author.decrypt === 'function') {
-            await article.author.decrypt();
-          }
+          // if (article.author && typeof article.author.decrypt === 'function') {
+          //   await article.author.decrypt();
+          // }
         })
       );
 
@@ -688,9 +720,9 @@ class ArticleService {
           await cryptoService.smartDecrypt(article);
 
           // ✅ ДОБАВЛЕНО: Явная расшифровка автора
-          if (article.author && typeof article.author.decrypt === 'function') {
-            await article.author.decrypt();
-          }
+          // if (article.author && typeof article.author.decrypt === 'function') {
+          //   await article.author.decrypt();
+          // }
         })
       );
 
@@ -729,9 +761,9 @@ class ArticleService {
           await cryptoService.smartDecrypt(article);
 
           // ✅ ДОБАВЛЕНО: Явная расшифровка автора
-          if (article.author && typeof article.author.decrypt === 'function') {
-            await article.author.decrypt();
-          }
+          // if (article.author && typeof article.author.decrypt === 'function') {
+          //   await article.author.decrypt();
+          // }
         })
       );
 
@@ -751,13 +783,15 @@ class ArticleService {
   async getAllArticlesForAdmin(options) {
     try {
       const {
-        limit,
-        skip,
-        sortBy,
-        sortOrder,
+        limit = 100,
+        page = 1,        // ✅ ИЗМЕНЕНО: принимаем page
+        sortBy = 'createdAt',  // ✅ ИЗМЕНЕНО: значение по умолчанию
         status,
         search
       } = options;
+
+      // ✅ ДОБАВЛЕНО: Backend сам вычисляет skip
+      const skip = (page - 1) * limit;
 
       // Базовый фильтр (пустой - выбираем ВСЕ статьи)
       const filter = {};
@@ -776,6 +810,16 @@ class ArticleService {
         ];
       }
 
+      // ✅ ИЗМЕНЕНО: Определяем направление сортировки
+      let sortOrder;
+      if (sortBy === 'views') {
+        sortOrder = -1; // DESC: больше просмотров сверху
+      } else if (sortBy === 'title') {
+        sortOrder = 1;  // ASC: A-Z
+      } else {
+        sortOrder = -1; // DESC: новые сверху (для createdAt, publishedAt)
+      }
+
       // Получаем статьи
       const articles = await Article.find(filter)
         .populate('author', 'firstName lastName email avatar role')
@@ -784,26 +828,27 @@ class ArticleService {
         .limit(limit)
         .skip(skip);
 
-      // ✅ ИСПРАВЛЕНИЕ: Расшифровываем статьи И отдельно авторов
+      // Расшифровываем статьи И отдельно авторов
       await Promise.all(
         articles.map(async (article) => {
           await cryptoService.smartDecrypt(article);
 
-          // ✅ ДОБАВЛЕНО: Явная расшифровка автора
-          if (article.author && typeof article.author.decrypt === 'function') {
-            await article.author.decrypt();
-          }
+          // Явная расшифровка автора
+          // if (article.author && typeof article.author.decrypt === 'function') {
+          //   await article.author.decrypt();
+          // }
         })
       );
 
       // Получаем общее количество
       const total = await Article.countDocuments(filter);
 
+      // ✅ ИЗМЕНЕНО: Возвращаем правильные значения пагинации
       return {
         articles,
         total,
-        page: Math.floor(skip / limit) + 1,
-        pages: Math.ceil(total / limit)
+        page: page,                          // текущая страница
+        totalPages: Math.ceil(total / limit) // общее количество страниц
       };
 
     } catch (error) {
