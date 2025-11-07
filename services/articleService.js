@@ -446,18 +446,18 @@ class ArticleService {
   async getPublishedArticles(options = {}) {
     try {
       const {
-        page = 1,
-        limit = 20,
-        sortBy = 'createdAt',
-        category = null,
-        author = null,
-        search = null
+        page = 1,           // Номер страницы
+        limit = 20,         // Количество статей на странице
+        sortBy = 'createdAt', // Поле сортировки
+        category = null,    // Slug категории
+        author = null,      // ID или username автора
+        search = null       // Поисковый запрос
       } = options;
 
       // Вычисляем skip из page
       const skip = (page - 1) * limit;
 
-      // ✅ ИСПРАВЛЕНО: Определяем направление сортировки
+      // Определяем направление сортировки
       let sortField = sortBy;
       let sortOrder = -1; // По умолчанию DESC
 
@@ -484,6 +484,7 @@ class ArticleService {
           filter.category = foundCategory._id;
           console.log(`🏷️ Category filter: ${category} → ${foundCategory._id}`);
         } else {
+          // Если не найдена по slug, проверяем может это ID
           if (mongoose.Types.ObjectId.isValid(category)) {
             filter.category = new mongoose.Types.ObjectId(category);
             console.log(`🏷️ Category filter by ID: ${category}`);
@@ -514,7 +515,7 @@ class ArticleService {
 
       console.log('🔍 MongoDB Filter:', JSON.stringify(filter));
 
-      // ✅ ИСПРАВЛЕНО: Добавляем collation для правильной сортировки словацкого языка
+      // ✅ СОЗДАЁМ QUERY (не выполняем сразу)
       const query = Article.find(filter)
         .populate('author', 'firstName lastName avatar')
         .populate('category', 'name slug')
@@ -522,9 +523,8 @@ class ArticleService {
         .limit(limit)
         .skip(skip);
 
-      // ✅ НОВОЕ: Применяем collation только для сортировки по title
+      // ✅ ПРИМЕНЯЕМ COLLATION ТОЛЬКО ДЛЯ СОРТИРОВКИ ПО TITLE
       if (sortBy === 'title') {
-        // Collation для словацкого языка
         query.collation({
           locale: 'sk',      // Словацкая локаль
           strength: 1        // Игнорировать диакритику при сравнении (á = a)
@@ -532,6 +532,7 @@ class ArticleService {
         console.log('🔤 Applied Slovak collation for title sorting');
       }
 
+      // ✅ ВЫПОЛНЯЕМ QUERY
       const articles = await query;
 
       // Получаем общее количество
@@ -542,6 +543,7 @@ class ArticleService {
         articles.map(async (article) => {
           await cryptoService.smartDecrypt(article);
 
+          // Явная расшифровка автора
           if (article.author && typeof article.author.decrypt === 'function') {
             await article.author.decrypt();
           }
