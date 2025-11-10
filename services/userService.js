@@ -97,6 +97,118 @@ class UserService {
         }
     }
 
+
+    /**
+ * Получение всех авторов (публичный доступ)
+ * @param {Object} options - параметры запроса
+ * @returns {Object} - список авторов с пагинацией и количеством статей
+ */
+async getAuthors(options = {}) {
+    try {
+        const {
+            page = 1,
+            limit = 12,
+            search = null
+        } = options;
+
+        const skip = (page - 1) * limit;
+
+        // Фильтр: только авторы, не заблокированные
+        const filter = {
+            role: { $in: ['author', 'admin'] },
+            'isBlocked.status': false
+        };
+
+        // Поиск по имени/фамилии
+        if (search) {
+            // Придется расшифровать всех авторов для поиска
+            const allAuthors = await UserModel.find(filter).select('-__v');
+            
+            const decryptedAuthors = [];
+            for (const author of allAuthors) {
+                await cryptoService.smartDecrypt(author);
+                const searchLower = search.toLowerCase();
+                if (
+                    author.firstName?.toLowerCase().includes(searchLower) ||
+                    author.lastName?.toLowerCase().includes(searchLower)
+                ) {
+                    decryptedAuthors.push(author);
+                }
+            }
+
+            // Применяем пагинацию после поиска
+            const paginatedAuthors = decryptedAuthors.slice(skip, skip + limit);
+
+            // Получаем количество статей для каждого автора
+            const Article = (await import('../models/Article.model.js')).default;
+            const authorsWithStats = await Promise.all(
+                paginatedAuthors.map(async (author) => {
+                    const articlesCount = await Article.countDocuments({
+                        author: author._id,
+                        status: 'published'
+                    });
+
+                    return {
+                        ...this.formatUserResponse(author),
+                        articlesCount
+                    };
+                })
+            );
+
+            return {
+                authors: authorsWithStats,
+                total: decryptedAuthors.length,
+                page,
+                totalPages: Math.ceil(decryptedAuthors.length / limit)
+            };
+        }
+
+        // Обычный запрос без поиска
+        const authors = await UserModel.find(filter)
+            .select('-__v')
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(limit);
+
+        const total = await UserModel.countDocuments(filter);
+
+        // Расшифровываем данные
+        for (const author of authors) {
+            await cryptoService.smartDecrypt(author);
+        }
+
+        // Получаем количество статей для каждого автора
+        const Article = (await import('../models/Article.model.js')).default;
+        const authorsWithStats = await Promise.all(
+            authors.map(async (author) => {
+                const articlesCount = await Article.countDocuments({
+                    author: author._id,
+                    status: 'published'
+                });
+
+                return {
+                    ...this.formatUserResponse(author),
+                    articlesCount
+                };
+            })
+        );
+
+        return {
+            authors: authorsWithStats,
+            total,
+            page,
+            totalPages: Math.ceil(total / limit)
+        };
+
+    } catch (error) {
+        console.error('Ошибка получения авторов:', error);
+        throw error;
+    }
+}
+
+
+    
+
     // ==================== УТИЛИТЫ ====================
 
     /**

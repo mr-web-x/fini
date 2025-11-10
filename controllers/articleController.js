@@ -189,24 +189,24 @@ class ArticleController {
     async getPublishedArticles(req, res) {
         try {
             const {
+                page,        // ✅ ИСПРАВЛЕНО: теперь принимаем page
                 limit,
-                skip,
                 sortBy,
-                sortOrder,
-                category, // ✅ ДОБАВИТЬ поддержку категории
-                author,   // можно добавить и другие фильтры
+                category,
+                author,
                 search
             } = req.query;
 
             const options = {
+                page: parseInt(page) || 1,           // ✅ ИСПРАВЛЕНО: передаём page
                 limit: parseInt(limit) || 20,
-                skip: parseInt(skip) || 0,
-                sortBy: sortBy || 'publishedAt',
-                sortOrder: parseInt(sortOrder) || -1,
-                category: category || null, // ✅ Передаем категорию в сервис
+                sortBy: sortBy || 'createdAt',       // ✅ ИСПРАВЛЕНО: по умолчанию createdAt
+                category: category || null,
                 author: author || null,
                 search: search || null
             };
+
+            console.log('📥 Controller received:', options); // Для отладки
 
             const result = await articleService.getPublishedArticles(options);
 

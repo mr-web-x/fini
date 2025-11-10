@@ -65,6 +65,37 @@ class UserController {
             });
         }
     }
+
+    /**
+     * Получение всех авторов (публичный доступ)
+     * @route GET /api/users/authors
+     * @access Public
+     */
+    async getAuthors(req, res) {
+        try {
+            const { page, limit, search } = req.query;
+
+            const options = {
+                page: parseInt(page) || 1,
+                limit: parseInt(limit) || 12,
+                search: search || null
+            };
+
+            const result = await userService.getAuthors(options);
+
+            return res.status(200).json({
+                success: true,
+                message: 'Авторы получены',
+                data: result
+            });
+
+        } catch (error) {
+            return res.status(400).json({
+                success: false,
+                message: error.message || 'Ошибка получения авторов'
+            });
+        }
+    }
 }
 
 export default new UserController();

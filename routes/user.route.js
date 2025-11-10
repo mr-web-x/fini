@@ -14,6 +14,22 @@ import authValidator from '../validation/authValidator.js';
 
 const router = express.Router();
 
+// ==================== ПУБЛИЧНЫЕ МАРШРУТЫ ====================
+// ВАЖНО: специфичные роуты (authors) должны быть ПЕРЕД динамическими (:id)
+
+/**
+ * @route GET /api/users/authors
+ * @desc Получение всех авторов (публичный доступ)
+ * @query ?page=1&limit=12&search=имя
+ * @access Public
+ */
+router.get(
+    '/authors',
+    userController.getAuthors
+);
+
+// ==================== ПРИВАТНЫЕ МАРШРУТЫ ====================
+
 /**
  * @route GET /api/users/me
  * @desc Получение информации о текущем пользователе
