@@ -206,6 +206,92 @@ async getAuthors(options = {}) {
     }
 }
 
+/**
+ * Получение автора по slug (firstName-lastName)
+ * @param {string} slug - slug автора (например: "jan-novak")
+ * @returns {Object} - данные автора со статистикой
+ */
+async getAuthorBySlug(slug) {
+    try {
+        // Разбираем slug на firstName и lastName
+        // Например: "jan-novak" -> firstName: "jan", lastName: "novak"
+        const slugParts = slug.split('-');
+        
+        if (slugParts.length < 2) {
+            throw new Error('Neplatný formát mena autora');
+        }
+
+        // Получаем всех авторов и ищем по расшифрованным данным
+        const authors = await UserModel.find({
+            role: { $in: ['author', 'admin'] },
+            'isBlocked.status': false
+        }).select('-__v');
+
+        // Расшифровываем и ищем подходящего автора
+        let foundAuthor = null;
+        for (const author of authors) {
+            await cryptoService.smartDecrypt(author);
+            
+            // Генерируем slug из имени автора
+            const authorSlug = `${author.firstName}-${author.lastName}`
+                .toLowerCase()
+                .normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '') // убираем диакритику
+                .replace(/[^a-z0-9-]/g, '-')
+                .replace(/-+/g, '-')
+                .replace(/^-|-$/g, '');
+
+            if (authorSlug === slug) {
+                foundAuthor = author;
+                break;
+            }
+        }
+
+        if (!foundAuthor) {
+            throw new Error('Autor nenájdený');
+        }
+
+        // Получаем статистику автора
+        const Article = (await import('../models/Article.model.js')).default;
+        
+        const articlesCount = await Article.countDocuments({
+            author: foundAuthor._id,
+            status: 'published'
+        });
+
+        const totalViews = await Article.aggregate([
+            {
+                $match: {
+                    author: foundAuthor._id,
+                    status: 'published'
+                }
+            },
+            {
+                $group: {
+                    _id: null,
+                    total: { $sum: '$views' }
+                }
+            }
+        ]);
+
+        const stats = {
+            articlesCount,
+            totalViews: totalViews[0]?.total || 0,
+            memberSince: foundAuthor.createdAt
+        };
+
+        return {
+            ...this.formatUserResponse(foundAuthor),
+            stats,
+            slug: slug // возвращаем slug обратно
+        };
+
+    } catch (error) {
+        console.error('Ошибка получения автора по slug:', error);
+        throw error;
+    }
+}
+
 
     
 

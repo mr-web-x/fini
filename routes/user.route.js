@@ -15,7 +15,7 @@ import authValidator from '../validation/authValidator.js';
 const router = express.Router();
 
 // ==================== ПУБЛИЧНЫЕ МАРШРУТЫ ====================
-// ВАЖНО: специфичные роуты (authors) должны быть ПЕРЕД динамическими (:id)
+// ВАЖНО: специфичные роуты должны быть ПЕРЕД динамическими (:slug, :id)
 
 /**
  * @route GET /api/users/authors
@@ -28,6 +28,16 @@ router.get(
     userController.getAuthors
 );
 
+/**
+ * @route GET /api/users/authors/:slug
+ * @desc Получение автора по slug (публичный доступ)
+ * @access Public
+ */
+router.get(
+    '/authors/:slug',
+    userController.getAuthorBySlug
+);
+
 // ==================== ПРИВАТНЫЕ МАРШРУТЫ ====================
 
 /**
@@ -37,8 +47,8 @@ router.get(
  */
 router.get(
     '/me',
-    authenticate,                       // ✅ Проверка JWT токена
-    userController.getMe                // ✅ Контроллер
+    authenticate,
+    userController.getMe
 );
 
 /**
@@ -48,10 +58,10 @@ router.get(
  */
 router.put(
     '/profile/:id',
-    authenticate,                       // ✅ Проверка JWT токена
-    checkProfileOwnership,              // ✅ Проверка владельца профиля
-    authValidator.validateUpdateProfile,// ✅ Проверка валидности данных
-    userController.updateProfile        // ✅ Контроллер
+    authenticate,
+    checkProfileOwnership,
+    authValidator.validateUpdateProfile,
+    userController.updateProfile
 );
 
 export default router;

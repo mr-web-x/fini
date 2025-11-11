@@ -96,6 +96,30 @@ class UserController {
             });
         }
     }
+    /**
+ * Получение автора по slug (публичный доступ)
+ * @route GET /api/users/authors/:slug
+ * @access Public
+ */
+async getAuthorBySlug(req, res) {
+    try {
+        const { slug } = req.params;
+
+        const author = await userService.getAuthorBySlug(slug);
+
+        return res.status(200).json({
+            success: true,
+            message: 'Autor získaný',
+            data: author
+        });
+
+    } catch (error) {
+        return res.status(404).json({
+            success: false,
+            message: error.message || 'Autor nenájdený'
+        });
+    }
+}
 }
 
 export default new UserController();
