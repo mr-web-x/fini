@@ -6,6 +6,8 @@ import jwt from 'jsonwebtoken';
 import { OAuth2Client } from 'google-auth-library';
 import UserModel from '../models/User.model.js';
 import cryptoService from './cryptoService.js';
+// ✅ НОВОЕ: Импортируем generateSlug
+import generateSlug from '../utils/slugGenerator.js';
 
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
@@ -70,6 +72,24 @@ class AuthService {
         await user.save();
         console.log(`✅ Пользователь вошел: ${googleData.googleId}`);
       } else {
+        // ✅ НОВОЕ: Генерируем slug для нового пользователя
+        let slug = null;
+        if (googleData.firstName && googleData.lastName) {
+          const baseSlug = generateSlug(`${googleData.firstName}-${googleData.lastName}`);
+
+          // Проверяем уникальность slug
+          let uniqueSlug = baseSlug;
+          let counter = 1;
+
+          while (await UserModel.findOne({ slug: uniqueSlug })) {
+            uniqueSlug = `${baseSlug}-${counter}`;
+            counter++;
+          }
+
+          slug = uniqueSlug;
+          console.log(`✅ Сгенерирован slug для нового пользователя: ${slug}`);
+        }
+
         // Новый пользователь
         user = await UserModel.create({
           email: googleData.email,
@@ -78,10 +98,11 @@ class AuthService {
           lastName: googleData.lastName,
           avatar: googleData.avatar,
           role: 'user',
+          slug: slug, // ✅ НОВОЕ: Сохраняем slug
           lastLogin: new Date()
         });
 
-        console.log(`✅ Новый пользователь создан: ${user.email}`);
+        console.log(`✅ Новый пользователь создан: ${user.email} (slug: ${slug})`);
       }
 
       try {
@@ -93,7 +114,8 @@ class AuthService {
       console.log('✅ Расшифрованные данные:', {
         email: user.email,
         firstName: user.firstName,
-        lastName: user.lastName
+        lastName: user.lastName,
+        slug: user.slug // ✅ НОВОЕ: Логируем slug
       });
 
       // Генерируем JWT с расшифрованными данными
@@ -107,7 +129,8 @@ class AuthService {
           lastName: user.lastName,
           role: user.role,
           avatar: user.avatar,
-          lastLogin: user.lastLogin
+          lastLogin: user.lastLogin,
+          slug: user.slug // ✅ НОВОЕ: Возвращаем slug в ответе
         },
         token
       };
@@ -175,68 +198,65 @@ class AuthService {
           };
         }
 
-        // Блокировка истекла — разблокируем
-        user.isBlocked.status = false;
-        user.isBlocked.until = null;
-        user.isBlocked.reason = '';
-        user.isBlocked.blockedBy = null;
+        // Блокировка истекла - разблокируем
+        user.isBlocked = {
+          status: false,
+          until: null,
+          reason: '',
+          blockedBy: null
+        };
         await user.save();
+        console.log(`✅ Пользователь ${user.email} автоматически разблокирован`);
       }
 
       return { valid: true };
     } catch (error) {
-      console.error('Ошибка валидации статуса пользователя:', error);
-      return {
-        valid: false,
-        message: 'Ошибка проверки статуса пользователя'
-      };
+      console.error('Ошибка проверки статуса пользователя:', error);
+      throw error;
     }
   }
 
   // ==================== JWT ТОКЕНЫ ====================
 
+  /**
+   * Генерация JWT токена
+   */
   generateToken(user) {
-    const payload = {
-      userId: user._id,
-    };
-
-    const token = jwt.sign(payload, process.env.JWT_SECRET, {
-      expiresIn: process.env.JWT_EXPIRATION || '7d',
-      issuer: 'fini.sk',
-      audience: 'fini-users'
-    });
-
-    console.log('🎫 Сгенерированный JWT токен:', token);
-
-    return token;
+    return jwt.sign(
+      {
+        userId: user._id,
+        email: user.email,
+        role: user.role
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: process.env.JWT_EXPIRATION || '7d' }
+    );
   }
 
+  /**
+   * Обновление JWT токена
+   */
   async refreshToken(oldToken) {
     try {
-      const user = await this.getUserFromToken(oldToken);
+      const decoded = jwt.verify(oldToken, process.env.JWT_SECRET, {
+        ignoreExpiration: true
+      });
+
+      const user = await UserModel.findById(decoded.userId);
+      if (!user) {
+        throw new Error('Пользователь не найден');
+      }
+
+      const statusCheck = await this.validateUserStatus(user);
+      if (!statusCheck.valid) {
+        throw new Error(statusCheck.message);
+      }
+
       return this.generateToken(user);
-    } catch {
-      throw new Error('Не удалось обновить токен');
+    } catch (error) {
+      console.error('Ошибка обновления токена:', error);
+      throw new Error('Неверный токен');
     }
-  }
-
-  // ==================== УТИЛИТЫ ====================
-
-  checkRole(user, requiredRole) {
-    const roleHierarchy = {
-      user: 1,
-      author: 2,
-      admin: 3
-    };
-    return roleHierarchy[user.role] >= roleHierarchy[requiredRole];
-  }
-
-  canWriteArticles(user) {
-    return user.role === 'author' || user.role === 'admin';
-  }
-
-  canModerate(user) {
-    return user.role === 'admin';
   }
 }
 

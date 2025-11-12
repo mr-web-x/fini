@@ -32,6 +32,17 @@ const userSchema = new mongoose.Schema({
     // ✅ Увеличено до 200 для зашифрованных данных
   },
 
+  // ✅ НОВОЕ: Slug для SEO-friendly URLs
+  slug: {
+    type: String,
+    unique: true,
+    sparse: true, // Позволяет null/undefined значения для пользователей без slug
+    lowercase: true,
+    trim: true,
+    maxlength: [100, 'Slug может содержать максимум 100 символов']
+    // ⚠️ ВАЖНО: slug НЕ шифруется, чтобы можно было искать по нему
+  },
+
   avatar: {
     type: String,
     default: ''
@@ -97,9 +108,12 @@ userSchema.index({ email: 1 });
 userSchema.index({ googleId: 1 });
 userSchema.index({ role: 1 });
 userSchema.index({ 'isBlocked.status': 1 });
+// ✅ НОВОЕ: Индекс на slug для быстрого поиска
+userSchema.index({ slug: 1 });
 
 // ==================== ШИФРОВАНИЕ ====================
 // ⚠️ Эти поля будут зашифрованы, поэтому maxlength увеличен!
+// ⚠️ ВАЖНО: slug НЕ включён в список шифруемых полей!
 EncryptableService.applyEncryption(userSchema, [
   "email",      // Нет maxlength
   "firstName",  // maxlength: 200

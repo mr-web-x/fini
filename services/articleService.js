@@ -5,37 +5,10 @@ import { writeLog } from "../middlewares/logger.js";
 import cryptoService from "./cryptoService.js";
 import mongoose from 'mongoose';
 
+import generateSlug from "../utils/slugGenerator.js";// new
 
-// Добавь эту функцию в начало файла (после импортов)
-function generateSlug(text) {
-  // Таблица транслитерации для словацкого языка
-  // Обрабатываем специфические словацкие символы
-  const slovakTranslitMap = {
-    // Нижний регистр
-    'á': 'a', 'ä': 'a', 'č': 'c', 'ď': 'd',
-    'é': 'e', 'í': 'i', 'ĺ': 'l', 'ľ': 'l',
-    'ň': 'n', 'ó': 'o', 'ô': 'o', 'ŕ': 'r',
-    'š': 's', 'ť': 't', 'ú': 'u', 'ý': 'y', 'ž': 'z',
-    // Верхний регистр (на всякий случай)
-    'Á': 'A', 'Ä': 'A', 'Č': 'C', 'Ď': 'D',
-    'É': 'E', 'Í': 'I', 'Ĺ': 'L', 'Ľ': 'L',
-    'Ň': 'N', 'Ó': 'O', 'Ô': 'O', 'Ŕ': 'R',
-    'Š': 'S', 'Ť': 'T', 'Ú': 'U', 'Ý': 'Y', 'Ž': 'Z'
-  };
 
-  return text
-    .split('') // Разбиваем на символы
-    .map(char => slovakTranslitMap[char] || char) // Транслитерируем словацкие символы
-    .join('') // Собираем обратно
-    .toLowerCase() // Приводим к нижнему регистру
-    .normalize('NFD') // Нормализуем для удаления оставшихся диакритических знаков
-    .replace(/[\u0300-\u036f]/g, '') // Удаляем диакритические знаки
-    .replace(/[^\w\s-]/g, '') // Удаляем все кроме букв, цифр, пробелов и дефисов
-    .replace(/\s+/g, '-') // Заменяем пробелы на дефисы
-    .replace(/-+/g, '-') // Заменяем множественные дефисы на один
-    .replace(/^-+|-+$/g, '') // Удаляем дефисы в начале и конце
-    .trim(); // Удаляем пробелы по краям
-}
+
 
 class ArticleService {
 
@@ -71,13 +44,13 @@ class ArticleService {
         throw new Error('Категория не найдена');
       }
 
-      // ✅ НОВОЕ: Генерация slug, если не передан
+      // ✅ Генерация slug, если не передан
       let slug = articleData.slug;
       if (!slug || slug.trim() === '') {
         slug = generateSlug(articleData.title);
       }
 
-      // ✅ НОВОЕ: Проверка уникальности slug с добавлением суффикса
+      // ✅ Проверка уникальности slug с добавлением суффикса
       let uniqueSlug = slug;
       let counter = 1;
 
@@ -114,7 +87,7 @@ class ArticleService {
   async getArticleById(articleId, populate = true) {
     try {
       const article = await Article.findById(articleId)
-        .populate('author', 'firstName lastName email avatar bio position role')
+        .populate('author', 'firstName lastName email avatar bio position role slug') // ✅ ДОБАВЛЕНО: slug
         .populate('category', 'name slug description');
 
       if (!article) {
@@ -123,11 +96,6 @@ class ArticleService {
 
       // ✅ Расшифровываем статью
       await cryptoService.smartDecrypt(article);
-
-      // ✅ ИСПРАВЛЕНИЕ: Явная расшифровка автора
-      // if (article.author && typeof article.author.decrypt === 'function') {
-      //   await article.author.decrypt();
-      // }
 
       return article;
 
@@ -142,10 +110,10 @@ class ArticleService {
    * @param {string} slug - slug статьи
    * @returns {Object} - статья
    */
-  async getArticleBySlug(slug) {
+ async getArticleBySlug(slug) {
     try {
       const article = await Article.findOne({ slug })
-        .populate('author', 'firstName lastName email avatar bio position role')
+        .populate('author', 'firstName lastName email avatar bio position role slug') // ✅ ДОБАВЛЕНО: slug
         .populate('category', 'name slug description');
 
       if (!article) {
@@ -155,11 +123,10 @@ class ArticleService {
       // ✅ Расшифровываем статью
       await cryptoService.smartDecrypt(article);
 
-
       return article;
 
     } catch (error) {
-      console.error('Ошибка получения статьи по slug:', error);
+      console.error('Ошибка получения статьи:', error);
       throw error;
     }
   }

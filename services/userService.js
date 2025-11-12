@@ -4,6 +4,8 @@
 
 import UserModel from '../models/User.model.js';
 import cryptoService from './cryptoService.js';
+// ✅ НОВОЕ: Импортируем generateSlug
+import generateSlug from '../utils/slugGenerator.js';
 
 class UserService {
 
@@ -57,28 +59,40 @@ class UserService {
                 // Валидация значения роли
                 const validRoles = ['user', 'author', 'admin'];
                 if (!validRoles.includes(updateData.role)) {
-                    throw new Error('Недопустимое значение роли. Разрешены: user, author, admin');
+                    throw new Error('Недопустимое значение роли. Допустимые значения: user, author, admin');
                 }
 
-                // Админ не может изменить свою собственную роль (защита от случайного понижения)
-                if (userId === currentUserId && user.role === 'admin') {
-                    throw new Error('Нельзя изменить собственную роль администратора');
+                // Запрещаем себя разжаловать
+                if (userId === currentUserId && updateData.role !== 'admin') {
+                    throw new Error('Вы не можете изменить свою роль администратора');
                 }
-
-                // Обновляем роль
-                user.role = updateData.role;
-                console.log(`🔐 Роль пользователя ${user.email} изменена: ${user.role} → ${updateData.role} (Admin: ${currentUserId})`);
             }
 
-            // ==================== ОБНОВЛЕНИЕ БАЗОВЫХ ПОЛЕЙ ====================
+            // ==================== ПРОВЕРКА ПРАВ НА ИЗМЕНЕНИЕ БЛОКИРОВКИ ====================
 
-            const allowedFields = [
-                'firstName',
-                'lastName',
-                'bio',
-                'position',
-                'showInAuthorsList'
-            ];
+            if (updateData.isBlocked !== undefined) {
+                // Только админ может блокировать/разблокировать
+                if (currentUserRole !== 'admin') {
+                    throw new Error('Только администратор может блокировать пользователей');
+                }
+
+                // Запрещаем блокировать самого себя
+                if (userId === currentUserId) {
+                    throw new Error('Вы не можете заблокировать самого себя');
+                }
+            }
+
+            // ==================== ПРОВЕРКА ПРАВ НА ИЗМЕНЕНИЕ ДРУГИХ ПОЛЕЙ ====================
+
+            // Обычный пользователь может редактировать только свой профиль
+            if (currentUserRole !== 'admin' && userId !== currentUserId) {
+                throw new Error('У вас нет прав на изменение этого профиля');
+            }
+
+            // ==================== ОБНОВЛЕНИЕ ДАННЫХ ====================
+
+            // Обновляем разрешенные поля
+            const allowedFields = ['firstName', 'lastName', 'bio', 'position', 'avatar', 'showInAuthorsList'];
 
             allowedFields.forEach(field => {
                 if (updateData[field] !== undefined) {
@@ -86,63 +100,139 @@ class UserService {
                 }
             });
 
+            // Админ может изменять роль и блокировку
+            if (currentUserRole === 'admin') {
+                if (updateData.role !== undefined) {
+                    user.role = updateData.role;
+                }
+
+                if (updateData.isBlocked !== undefined) {
+                    user.isBlocked = {
+                        status: updateData.isBlocked.status || false,
+                        until: updateData.isBlocked.until || null,
+                        reason: updateData.isBlocked.reason || '',
+                        blockedBy: updateData.isBlocked.status ? currentUserId : null
+                    };
+                }
+            }
+
+            // ✅ НОВОЕ: Генерация slug при изменении firstName или lastName
+            if (updateData.firstName !== undefined || updateData.lastName !== undefined) {
+                // Получаем актуальные значения (новые или старые)
+                const firstName = updateData.firstName !== undefined ? updateData.firstName : user.firstName;
+                const lastName = updateData.lastName !== undefined ? updateData.lastName : user.lastName;
+
+                // Генерируем slug из firstName-lastName
+                if (firstName && lastName) {
+                    const baseSlug = generateSlug(`${firstName}-${lastName}`);
+
+                    // Проверяем уникальность slug
+                    let uniqueSlug = baseSlug;
+                    let counter = 1;
+
+                    // Ищем уникальный slug (исключая текущего пользователя)
+                    while (await UserModel.findOne({ slug: uniqueSlug, _id: { $ne: userId } })) {
+                        uniqueSlug = `${baseSlug}-${counter}`;
+                        counter++;
+                    }
+
+                    user.slug = uniqueSlug;
+                    console.log(`✅ Сгенерирован slug для пользователя: ${uniqueSlug}`);
+                }
+            }
+
             await user.save();
-            console.log(`✅ Профиль обновлен: ${user.email}`);
 
             await cryptoService.smartDecrypt(user);
             return this.formatUserResponse(user);
+
         } catch (error) {
             console.error('Ошибка обновления профиля:', error);
             throw error;
         }
     }
 
+    // ==================== АВТОРЫ ====================
 
     /**
- * Получение всех авторов (публичный доступ)
- * @param {Object} options - параметры запроса
- * @returns {Object} - список авторов с пагинацией и количеством статей
- */
-async getAuthors(options = {}) {
-    try {
-        const {
-            page = 1,
-            limit = 12,
-            search = null
-        } = options;
+     * Получение списка авторов
+     * @param {Object} options - опции { page, limit, search }
+     * @returns {Object} - { authors, total, page, totalPages }
+     */
+    async getAuthors(options = {}) {
+        try {
+            const { page = 1, limit = 12, search = null } = options;
+            const skip = (page - 1) * limit;
 
-        const skip = (page - 1) * limit;
+            // Базовый фильтр - только авторы и админы, не заблокированные
+            const filter = {
+                role: { $in: ['author', 'admin'] },
+                showInAuthorsList: true,
+                'isBlocked.status': false
+            };
 
-        // Фильтр: только авторы, не заблокированные
-        const filter = {
-            role: { $in: ['author', 'admin'] },
-            'isBlocked.status': false
-        };
+            // ✅ ОПТИМИЗАЦИЯ: Если есть поиск, работаем как раньше (т.к. firstName зашифрован)
+            if (search) {
+                // Загружаем всех авторов для поиска по расшифрованным данным
+                const allAuthors = await UserModel.find(filter).select('-__v');
 
-        // Поиск по имени/фамилии
-        if (search) {
-            // Придется расшифровать всех авторов для поиска
-            const allAuthors = await UserModel.find(filter).select('-__v');
-            
-            const decryptedAuthors = [];
-            for (const author of allAuthors) {
-                await cryptoService.smartDecrypt(author);
-                const searchLower = search.toLowerCase();
-                if (
-                    author.firstName?.toLowerCase().includes(searchLower) ||
-                    author.lastName?.toLowerCase().includes(searchLower)
-                ) {
-                    decryptedAuthors.push(author);
+                const decryptedAuthors = [];
+                for (const author of allAuthors) {
+                    await cryptoService.smartDecrypt(author);
+                    const searchLower = search.toLowerCase();
+                    if (
+                        author.firstName?.toLowerCase().includes(searchLower) ||
+                        author.lastName?.toLowerCase().includes(searchLower)
+                    ) {
+                        decryptedAuthors.push(author);
+                    }
                 }
+
+                // Применяем пагинацию после поиска
+                const paginatedAuthors = decryptedAuthors.slice(skip, skip + limit);
+
+                // Получаем количество статей для каждого автора
+                const Article = (await import('../models/Article.model.js')).default;
+                const authorsWithStats = await Promise.all(
+                    paginatedAuthors.map(async (author) => {
+                        const articlesCount = await Article.countDocuments({
+                            author: author._id,
+                            status: 'published'
+                        });
+
+                        return {
+                            ...this.formatUserResponse(author),
+                            articlesCount
+                        };
+                    })
+                );
+
+                return {
+                    authors: authorsWithStats,
+                    total: decryptedAuthors.length,
+                    page,
+                    totalPages: Math.ceil(decryptedAuthors.length / limit)
+                };
             }
 
-            // Применяем пагинацию после поиска
-            const paginatedAuthors = decryptedAuthors.slice(skip, skip + limit);
+            // Обычный запрос без поиска
+            const authors = await UserModel.find(filter)
+                .select('-__v')
+                .sort({ createdAt: -1 })
+                .skip(skip)
+                .limit(limit);
+
+            const total = await UserModel.countDocuments(filter);
+
+            // Расшифровываем данные
+            for (const author of authors) {
+                await cryptoService.smartDecrypt(author);
+            }
 
             // Получаем количество статей для каждого автора
             const Article = (await import('../models/Article.model.js')).default;
             const authorsWithStats = await Promise.all(
-                paginatedAuthors.map(async (author) => {
+                authors.map(async (author) => {
                     const articlesCount = await Article.countDocuments({
                         author: author._id,
                         status: 'published'
@@ -157,143 +247,77 @@ async getAuthors(options = {}) {
 
             return {
                 authors: authorsWithStats,
-                total: decryptedAuthors.length,
+                total,
                 page,
-                totalPages: Math.ceil(decryptedAuthors.length / limit)
+                totalPages: Math.ceil(total / limit)
             };
+
+        } catch (error) {
+            console.error('Ошибка получения авторов:', error);
+            throw error;
         }
-
-        // Обычный запрос без поиска
-        const authors = await UserModel.find(filter)
-            .select('-__v')
-            .sort({ createdAt: -1 })
-            .skip(skip)
-            .limit(limit);
-
-        const total = await UserModel.countDocuments(filter);
-
-        // Расшифровываем данные
-        for (const author of authors) {
-            await cryptoService.smartDecrypt(author);
-        }
-
-        // Получаем количество статей для каждого автора
-        const Article = (await import('../models/Article.model.js')).default;
-        const authorsWithStats = await Promise.all(
-            authors.map(async (author) => {
-                const articlesCount = await Article.countDocuments({
-                    author: author._id,
-                    status: 'published'
-                });
-
-                return {
-                    ...this.formatUserResponse(author),
-                    articlesCount
-                };
-            })
-        );
-
-        return {
-            authors: authorsWithStats,
-            total,
-            page,
-            totalPages: Math.ceil(total / limit)
-        };
-
-    } catch (error) {
-        console.error('Ошибка получения авторов:', error);
-        throw error;
     }
-}
 
-/**
- * Получение автора по slug (firstName-lastName)
- * @param {string} slug - slug автора (например: "jan-novak")
- * @returns {Object} - данные автора со статистикой
- */
-async getAuthorBySlug(slug) {
-    try {
-        // Разбираем slug на firstName и lastName
-        // Например: "jan-novak" -> firstName: "jan", lastName: "novak"
-        const slugParts = slug.split('-');
-        
-        if (slugParts.length < 2) {
-            throw new Error('Neplatný formát mena autora');
-        }
+    /**
+     * ✅ ОПТИМИЗИРОВАНО: Получение автора по slug (прямой поиск в базе)
+     * @param {string} slug - slug автора (например: "jan-novak")
+     * @returns {Object} - данные автора со статистикой
+     */
+    async getAuthorBySlug(slug) {
+        try {
+            // ✅ НОВОЕ: Прямой поиск по slug в базе (быстро!)
+            const author = await UserModel.findOne({
+                slug: slug,
+                role: { $in: ['author', 'admin'] },
+                'isBlocked.status': false
+            }).select('-__v');
 
-        // Получаем всех авторов и ищем по расшифрованным данным
-        const authors = await UserModel.find({
-            role: { $in: ['author', 'admin'] },
-            'isBlocked.status': false
-        }).select('-__v');
+            if (!author) {
+                throw new Error('Autor nenájdený');
+            }
 
-        // Расшифровываем и ищем подходящего автора
-        let foundAuthor = null;
-        for (const author of authors) {
+            // Расшифровываем данные автора
             await cryptoService.smartDecrypt(author);
-            
-            // Генерируем slug из имени автора
-            const authorSlug = `${author.firstName}-${author.lastName}`
-                .toLowerCase()
-                .normalize('NFD')
-                .replace(/[\u0300-\u036f]/g, '') // убираем диакритику
-                .replace(/[^a-z0-9-]/g, '-')
-                .replace(/-+/g, '-')
-                .replace(/^-|-$/g, '');
 
-            if (authorSlug === slug) {
-                foundAuthor = author;
-                break;
-            }
-        }
+            // Получаем статистику автора
+            const Article = (await import('../models/Article.model.js')).default;
 
-        if (!foundAuthor) {
-            throw new Error('Autor nenájdený');
-        }
+            const articlesCount = await Article.countDocuments({
+                author: author._id,
+                status: 'published'
+            });
 
-        // Получаем статистику автора
-        const Article = (await import('../models/Article.model.js')).default;
-        
-        const articlesCount = await Article.countDocuments({
-            author: foundAuthor._id,
-            status: 'published'
-        });
-
-        const totalViews = await Article.aggregate([
-            {
-                $match: {
-                    author: foundAuthor._id,
-                    status: 'published'
+            const totalViews = await Article.aggregate([
+                {
+                    $match: {
+                        author: author._id,
+                        status: 'published'
+                    }
+                },
+                {
+                    $group: {
+                        _id: null,
+                        total: { $sum: '$views' }
+                    }
                 }
-            },
-            {
-                $group: {
-                    _id: null,
-                    total: { $sum: '$views' }
-                }
-            }
-        ]);
+            ]);
 
-        const stats = {
-            articlesCount,
-            totalViews: totalViews[0]?.total || 0,
-            memberSince: foundAuthor.createdAt
-        };
+            const stats = {
+                articlesCount,
+                totalViews: totalViews[0]?.total || 0,
+                memberSince: author.createdAt
+            };
 
-        return {
-            ...this.formatUserResponse(foundAuthor),
-            stats,
-            slug: slug // возвращаем slug обратно
-        };
+            return {
+                ...this.formatUserResponse(author),
+                stats
+            };
 
-    } catch (error) {
-        console.error('Ошибка получения автора по slug:', error);
-        throw error;
+        } catch (error) {
+            console.error('Ошибка получения автора по slug:', error);
+            throw error;
+        }
     }
-}
-
-
-    
 
     // ==================== УТИЛИТЫ ====================
 
@@ -317,7 +341,8 @@ async getAuthorBySlug(slug) {
             isBlocked: user.isBlocked,
             lastLogin: user.lastLogin,
             createdAt: user.createdAt,
-            updatedAt: user.updatedAt
+            updatedAt: user.updatedAt,
+            slug: user.slug // ✅ НОВОЕ: Добавляем slug в ответ
         };
     }
 }
