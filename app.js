@@ -37,7 +37,8 @@ import {
     articleRoutes,
     categoryRoutes,
     commentRoutes,
-    adminUserRoutes
+    adminUserRoutes,
+    telegramRoutes // ✨ NEW
 } from './routes/index.js';
 
 // Базовые маршруты API
@@ -47,6 +48,7 @@ app.use('/api/articles', articleRoutes);
 app.use('/api/categories', categoryRoutes);
 app.use('/api/comments', commentRoutes);
 app.use('/api/admin/users', adminUserRoutes);
+app.use('/api/telegram', telegramRoutes); // ✨ NEW
 
 // ==================== HEALTH CHECK ====================
 
@@ -75,7 +77,8 @@ app.get('/', (req, res) => {
                 users: '/api/users',
                 articles: '/api/articles',
                 categories: '/api/categories',
-                comments: '/api/comments'
+                comments: '/api/comments',
+                telegram: '/api/telegram' // ✨ NEW
             }
         }
     });
