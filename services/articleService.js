@@ -110,7 +110,7 @@ class ArticleService {
    * @param {string} slug - slug статьи
    * @returns {Object} - статья
    */
- async getArticleBySlug(slug) {
+  async getArticleBySlug(slug) {
     try {
       const article = await Article.findOne({ slug })
         .populate('author', 'firstName lastName email avatar bio position role slug') // ✅ ДОБАВЛЕНО: slug
@@ -418,7 +418,8 @@ class ArticleService {
         sortBy = 'createdAt', // Поле сортировки
         category = null,    // Slug категории
         author = null,      // ID или username автора
-        search = null       // Поисковый запрос
+        search = null,         // Поисковый запрос
+        days = null
       } = options;
 
       // Вычисляем skip из page
@@ -441,6 +442,13 @@ class ArticleService {
 
       // СОЗДАЕМ ДИНАМИЧЕСКИЙ ФИЛЬТР
       const filter = { status: 'published' };
+
+      // ✅ ДОБАВЛЕНО: Фильтр по датам
+      if (days) {
+        const dateFrom = new Date();
+        dateFrom.setDate(dateFrom.getDate() - days);
+        filter.publishedAt = { $gte: dateFrom };
+      }
 
       // ФИЛЬТРАЦИЯ ПО КАТЕГОРИИ через SLUG
       if (category) {

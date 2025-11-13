@@ -194,7 +194,8 @@ class ArticleController {
                 sortBy,
                 category,
                 author,
-                search
+                search,
+                days
             } = req.query;
 
             const options = {
@@ -203,7 +204,8 @@ class ArticleController {
                 sortBy: sortBy || 'createdAt',       // ✅ ИСПРАВЛЕНО: по умолчанию createdAt
                 category: category || null,
                 author: author || null,
-                search: search || null
+                search: search || null,
+                days: days ? parseInt(days) : null 
             };
 
             console.log('📥 Controller received:', options); // Для отладки
