@@ -8,6 +8,9 @@ import { deleteImageByName } from '../middlewares/uploadArticleImage.middleware.
 class ArticleController {
     async createArticle(req, res) {
         try {
+            console.log('🟢 [Controller] createArticle вызван');
+            console.log('🟢 [Controller] req.uploadedImageName:', req.uploadedImageName);
+            console.log('🟢 [Controller] req.body keys:', Object.keys(req.body));
             const authorId = req.user.userId;
             const articleData = req.body;
 
@@ -307,20 +310,14 @@ class ArticleController {
     async getMyArticles(req, res) {
         try {
             const userId = req.user.userId;
-            const { page, limit, status } = req.query;
+            const status = req.query.status || 'all'; // ✅ ИСПРАВЛЕНО: только status
 
-            const options = {
-                page: parseInt(page) || 1,
-                limit: parseInt(limit) || 10,
-                status: status || 'all'
-            };
-
-            const articles = await articleService.getMyArticles(userId, options);
+            const result = await articleService.getMyArticles(userId, status);
 
             return res.status(200).json({
                 success: true,
                 message: 'Ваши статьи получены',
-                data: articles
+                data: result
             });
 
         } catch (error) {

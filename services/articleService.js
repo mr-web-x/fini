@@ -643,6 +643,41 @@ class ArticleService {
   }
 
   /**
+ * Получение статей текущего пользователя (по токену)
+ * @param {string} userId - ID пользователя
+ * @param {string} status - Статус фильтрации (draft, pending, published, rejected, all)
+ * @returns {Object} - статьи с пагинацией
+ */
+  async getMyArticles(userId, status = 'all') {
+    try {
+      const filter = { author: userId };
+
+      // Фильтр по статусу
+      if (status && status !== 'all') {
+        filter.status = status;
+      }
+
+      const articles = await Article.find(filter)
+        .populate('category', 'name slug')
+        .sort({ createdAt: -1 });
+
+      // Расшифровываем статьи
+      await Promise.all(
+        articles.map(article => cryptoService.smartDecrypt(article))
+      );
+
+      return {
+        articles,
+        total: articles.length
+      };
+
+    } catch (error) {
+      console.error('Ошибка получения статей пользователя:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Получение статей на модерации (для админа)
    * @returns {Array} - массив статей
    */

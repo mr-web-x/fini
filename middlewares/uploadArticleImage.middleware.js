@@ -32,8 +32,14 @@ const upload = multer({
 
 // Middleware для обработки изображения
 const processImage = async (req, res, next) => {
+    // ✅ ОТЛАДКА
+    console.log('🔴 [Middleware] processImage вызван');
+    console.log('🔴 [Middleware] req.file:', req.file);
+    console.log('🔴 [Middleware] req.files:', req.files);
+    console.log('🔴 [Middleware] req.body:', Object.keys(req.body));
     // Если файл не загружен, переходим дальше (картинка опциональна)
     if (!req.file) {
+        console.log('⚠️ [Middleware] Файл не загружен, пропускаем');
         return next();
     }
 

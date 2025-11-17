@@ -49,9 +49,25 @@ class ArticleValidator {
                 errors.push('Категория обязательна');
             }
 
-            // Tags (опционально)
-            if (tags && !Array.isArray(tags)) {
-                errors.push('Теги должны быть массивом');
+
+            // Tags (опционально) - поддержка FormData
+            if (tags !== undefined && tags !== null) {
+                // Express автоматически преобразует tags[] в массив
+                if (!Array.isArray(tags)) {
+                    // Если пришла строка - пробуем распарсить
+                    if (typeof tags === 'string') {
+                        try {
+                            const parsed = JSON.parse(tags);
+                            if (!Array.isArray(parsed)) {
+                                errors.push('Теги должны быть массивом');
+                            }
+                        } catch {
+                            errors.push('Теги должны быть массивом');
+                        }
+                    } else {
+                        errors.push('Теги должны быть массивом');
+                    }
+                }
             }
 
             // SEO (опционально)
@@ -133,9 +149,22 @@ class ArticleValidator {
                 errors.push('Категория должна быть строкой');
             }
 
-            // Tags (опционально)
-            if (tags !== undefined && !Array.isArray(tags)) {
-                errors.push('Теги должны быть массивом');
+            // Tags (опционально) - поддержка FormData
+            if (tags !== undefined && tags !== null) {
+                if (!Array.isArray(tags)) {
+                    if (typeof tags === 'string') {
+                        try {
+                            const parsed = JSON.parse(tags);
+                            if (!Array.isArray(parsed)) {
+                                errors.push('Теги должны быть массивом');
+                            }
+                        } catch {
+                            errors.push('Теги должны быть массивом');
+                        }
+                    } else {
+                        errors.push('Теги должны быть массивом');
+                    }
+                }
             }
 
             // SEO (опционально)
