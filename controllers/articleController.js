@@ -3,12 +3,18 @@
 // ============================================
 
 import articleService from '../services/articleService.js';
+import { deleteImageByName } from '../middlewares/uploadArticleImage.middleware.js';
 
 class ArticleController {
     async createArticle(req, res) {
         try {
             const authorId = req.user.userId;
             const articleData = req.body;
+
+            // ✨ NEW: Добавляем coverImage если был загружен файл
+            if (req.uploadedImageName) {
+                articleData.coverImage = req.uploadedImageName;
+            }
 
             const article = await articleService.createArticle(articleData, authorId);
 
@@ -18,6 +24,11 @@ class ArticleController {
                 data: article
             });
         } catch (error) {
+            // Если произошла ошибка и файл был загружен, удаляем его
+            if (req.uploadedImageName) {
+                await deleteImageByName(req.uploadedImageName);
+            }
+
             return res.status(400).json({
                 success: false,
                 message: error.message || 'Ошибка при создании статьи'
@@ -71,16 +82,31 @@ class ArticleController {
             const userId = req.user.userId;
             const updateData = req.body;
 
-            // ✅ ДОБАВЬ ЛОГИРОВАНИЕ:
             console.log('🟡 [Backend Controller] updateArticle:', {
                 articleId: id,
                 userId,
-                updateData
+                updateData,
+                hasNewImage: !!req.uploadedImageName
             });
+
+            // ✨ NEW: Если загружена новая картинка
+            if (req.uploadedImageName) {
+                // Получаем текущую статью чтобы удалить старую картинку
+                const currentArticle = await articleService.getArticleById(id);
+
+                // Удаляем старую картинку если она существует
+                if (currentArticle.coverImage) {
+                    await deleteImageByName(currentArticle.coverImage);
+                    console.log('🗑️ Старая картинка удалена:', currentArticle.coverImage);
+                }
+
+                // Добавляем новую картинку в данные обновления
+                updateData.coverImage = req.uploadedImageName;
+                console.log('✅ Новая картинка добавлена:', req.uploadedImageName);
+            }
 
             const article = await articleService.updateArticle(id, updateData, userId);
 
-            // ✅ ДОБАВЬ ЛОГИРОВАНИЕ УСПЕХА:
             console.log('🟡 [Backend Controller] Статья обновлена:', article._id);
 
             return res.status(200).json({
@@ -90,7 +116,11 @@ class ArticleController {
             });
 
         } catch (error) {
-            // ✅ ДОБАВЬ ДЕТАЛЬНОЕ ЛОГИРОВАНИЕ:
+            // Если произошла ошибка и новый файл был загружен, удаляем его
+            if (req.uploadedImageName) {
+                await deleteImageByName(req.uploadedImageName);
+            }
+
             console.error('❌ [Backend Controller] updateArticle error:', {
                 message: error.message,
                 stack: error.stack
@@ -107,7 +137,17 @@ class ArticleController {
             const { id } = req.params;
             const userId = req.user.userId;
 
+            // ✨ NEW: Получаем статью перед удалением чтобы удалить картинку
+            const article = await articleService.getArticleById(id);
+
+            // Удаляем статью из базы
             const result = await articleService.deleteArticle(id, userId);
+
+            // Удаляем картинку если она существует
+            if (article.coverImage) {
+                await deleteImageByName(article.coverImage);
+                console.log('🗑️ Картинка удалена вместе со статьей:', article.coverImage);
+            }
 
             return res.status(200).json({
                 success: true,
@@ -167,10 +207,10 @@ class ArticleController {
     async rejectArticle(req, res) {
         try {
             const { id } = req.params;
-            const adminId = req.user.userId;
             const { reason } = req.body;
+            const adminId = req.user.userId;
 
-            const article = await articleService.rejectArticle(id, adminId, reason);
+            const article = await articleService.rejectArticle(id, reason, adminId);
 
             return res.status(200).json({
                 success: true,
@@ -188,34 +228,20 @@ class ArticleController {
 
     async getPublishedArticles(req, res) {
         try {
-            const {
-                page,        // ✅ ИСПРАВЛЕНО: теперь принимаем page
-                limit,
-                sortBy,
-                category,
-                author,
-                search,
-                days
-            } = req.query;
+            const { page, limit, sort } = req.query;
 
             const options = {
-                page: parseInt(page) || 1,           // ✅ ИСПРАВЛЕНО: передаём page
-                limit: parseInt(limit) || 20,
-                sortBy: sortBy || 'createdAt',       // ✅ ИСПРАВЛЕНО: по умолчанию createdAt
-                category: category || null,
-                author: author || null,
-                search: search || null,
-                days: days ? parseInt(days) : null 
+                page: parseInt(page) || 1,
+                limit: parseInt(limit) || 10,
+                sort: sort || '-publishedAt'
             };
 
-            console.log('📥 Controller received:', options); // Для отладки
-
-            const result = await articleService.getPublishedArticles(options);
+            const articles = await articleService.getPublishedArticles(options);
 
             return res.status(200).json({
                 success: true,
-                message: 'Статьи получены',
-                data: result
+                message: 'Опубликованные статьи получены',
+                data: articles
             });
 
         } catch (error) {
@@ -229,27 +255,51 @@ class ArticleController {
     async getArticlesByCategory(req, res) {
         try {
             const { categoryId } = req.params;
-            const { limit, skip, sortBy, sortOrder } = req.query;
+            const { page, limit } = req.query;
 
             const options = {
-                limit: parseInt(limit) || 20,
-                skip: parseInt(skip) || 0,
-                sortBy: sortBy || 'publishedAt',
-                sortOrder: parseInt(sortOrder) || -1
+                page: parseInt(page) || 1,
+                limit: parseInt(limit) || 10
             };
 
-            const result = await articleService.getArticlesByCategory(categoryId, options);
+            const articles = await articleService.getArticlesByCategory(categoryId, options);
 
             return res.status(200).json({
                 success: true,
                 message: 'Статьи категории получены',
-                data: result
+                data: articles
             });
 
         } catch (error) {
             return res.status(400).json({
                 success: false,
-                message: error.message || 'Ошибка получения статей категории'
+                message: error.message || 'Ошибка получения статей'
+            });
+        }
+    }
+
+    async getArticlesByAuthor(req, res) {
+        try {
+            const { authorId } = req.params;
+            const { page, limit } = req.query;
+
+            const options = {
+                page: parseInt(page) || 1,
+                limit: parseInt(limit) || 10
+            };
+
+            const articles = await articleService.getArticlesByAuthor(authorId, options);
+
+            return res.status(200).json({
+                success: true,
+                message: 'Статьи автора получены',
+                data: articles
+            });
+
+        } catch (error) {
+            return res.status(400).json({
+                success: false,
+                message: error.message || 'Ошибка получения статей'
             });
         }
     }
@@ -257,63 +307,39 @@ class ArticleController {
     async getMyArticles(req, res) {
         try {
             const userId = req.user.userId;
-            const { status } = req.query;
-
-            const result = await articleService.getArticlesByAuthor(userId, { status });
-
-            return res.status(200).json({
-                success: true,
-                message: 'Мои статьи получены',
-                data: result
-            });
-
-        } catch (error) {
-            return res.status(400).json({
-                success: false,
-                message: error.message || 'Ошибка получения статей автора'
-            });
-        }
-    }
-
-
-    async getArticlesByAuthor(req, res) {
-        try {
-            const { authorId } = req.params;
-            const { limit, skip, status } = req.query;
+            const { page, limit, status } = req.query;
 
             const options = {
-                limit: parseInt(limit) || 20,
-                skip: parseInt(skip) || 0,
-                status: status || null
+                page: parseInt(page) || 1,
+                limit: parseInt(limit) || 10,
+                status: status || 'all'
             };
 
-            const result = await articleService.getArticlesByAuthor(authorId, options);
+            const articles = await articleService.getMyArticles(userId, options);
 
             return res.status(200).json({
                 success: true,
-                message: 'Статьи автора получены',
-                data: result
+                message: 'Ваши статьи получены',
+                data: articles
             });
 
         } catch (error) {
             return res.status(400).json({
                 success: false,
-                message: error.message || 'Ошибка получения статей автора'
+                message: error.message || 'Ошибка получения статей'
             });
         }
     }
 
     async getAllArticlesForAdmin(req, res) {
         try {
-            const { limit, skip, sortBy, sortOrder, status, search } = req.query;
+            const { page, limit, status, sort } = req.query;
 
             const options = {
-                limit: parseInt(limit) || 100,
-                skip: parseInt(skip) || 0,
-                sortBy: sortBy || 'createdAt',
-                sortOrder: parseInt(sortOrder) || -1,
-                status: status || null,
-                search: search || null
+                page: parseInt(page) || 1,
+                limit: parseInt(limit) || 20,
+                status: status || 'all',
+                sort: sort || '-createdAt'
             };
 
             const result = await articleService.getAllArticlesForAdmin(options);

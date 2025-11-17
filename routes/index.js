@@ -8,7 +8,8 @@ import articleRoutes from './article.route.js';
 import categoryRoutes from './category.route.js';
 import commentRoutes from './comment.route.js';
 import adminUserRoutes from './adminUser.route.js';
-import telegramRoutes from './telegram.route.js'; // ✨ NEW
+import telegramRoutes from './telegram.route.js';
+import imageRoutes from './image.route.js'; // ✨ NEW
 
 
 export {
@@ -18,5 +19,6 @@ export {
     categoryRoutes,
     commentRoutes,
     adminUserRoutes,
-    telegramRoutes // ✨ NEW
+    telegramRoutes,
+    imageRoutes // ✨ NEW
 };

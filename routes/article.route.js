@@ -10,6 +10,9 @@ import {
     requireAdmin
 } from '../middlewares/auth.middleware.js';
 
+// ✨ NEW: Импорт middleware для загрузки изображений
+import { upload, processImage } from '../middlewares/uploadArticleImage.middleware.js';
+
 // Валидации
 import articleValidator from '../validation/articleValidate.js';
 import commonValidator from '../validation/commonValidator.js';
@@ -190,33 +193,39 @@ router.get(
 
 /**
  * @route POST /api/articles
- * @desc Создание новой статьи
+ * @desc Создание новой статьи (с опциональной загрузкой изображения)
  * @access Private (author, admin)
+ * ✨ NEW: Добавлены middleware upload и processImage для загрузки картинки
  */
 router.post(
     '/',
     authenticate,
     requireAuthor,
+    upload,                                    // ✨ NEW: Прием файла
+    processImage,                              // ✨ NEW: Обработка изображения
     articleValidator.validateCreateArticle,
     articleController.createArticle
 );
 
 /**
  * @route PUT /api/articles/:id
- * @desc Обновление статьи
+ * @desc Обновление статьи (с опциональной загрузкой нового изображения)
  * @access Private (author владелец или admin)
+ * ✨ NEW: Добавлены middleware upload и processImage для загрузки картинки
  */
 router.put(
     '/:id',
     authenticate,
     requireAuthor,
+    upload,                                    // ✨ NEW: Прием файла
+    processImage,                              // ✨ NEW: Обработка изображения
     articleValidator.validateUpdateArticle,
     articleController.updateArticle
 );
 
 /**
  * @route DELETE /api/articles/:id
- * @desc Удаление статьи
+ * @desc Удаление статьи (автоматически удаляет связанное изображение)
  * @access Private (author владелец или admin)
  */
 router.delete(

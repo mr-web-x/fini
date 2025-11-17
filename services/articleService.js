@@ -60,12 +60,13 @@ class ArticleService {
         counter++;
       }
 
-      // Создаем статью со статусом draft
+      // ✨ NEW: Создаем статью со всеми полями, включая coverImage
       const article = await Article.create({
         ...articleData,
-        slug: uniqueSlug, // ✅ Используем уникальный сгенерированный slug
+        slug: uniqueSlug,
         author: authorId,
-        status: 'draft'
+        status: 'draft',
+        coverImage: articleData.coverImage || '' // ✨ NEW: добавляем coverImage
       });
 
       console.log(`Статья создана: ${article.title} (${article.slug})`);
@@ -140,11 +141,11 @@ class ArticleService {
    */
   async updateArticle(articleId, updateData, userId) {
     try {
-      // ✅ ДОБАВЬ ЛОГИРОВАНИЕ В НАЧАЛЕ:
       console.log('🔴 [Backend Service] updateArticle:', {
         articleId,
         userId,
-        updateDataKeys: Object.keys(updateData)
+        updateDataKeys: Object.keys(updateData),
+        hasCoverImage: !!updateData.coverImage // ✨ NEW: логируем наличие новой картинки
       });
 
       const article = await Article.findById(articleId);
@@ -157,7 +158,8 @@ class ArticleService {
         articleId: article._id,
         currentTitle: article.title,
         status: article.status,
-        author: article.author
+        author: article.author,
+        currentCoverImage: article.coverImage // ✨ NEW: логируем текущую картинку
       });
 
       // КРИТИЧНО: нельзя редактировать published статьи
@@ -183,7 +185,7 @@ class ArticleService {
       // Обновляем разрешенные поля
       const allowedFields = [
         'title', 'slug', 'excerpt', 'content', 'category',
-        'tags', 'seo'
+        'tags', 'seo', 'coverImage'
       ];
 
       allowedFields.forEach(field => {

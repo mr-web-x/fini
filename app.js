@@ -5,6 +5,7 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import path from 'path';
 import logger from './middlewares/logger.js';
 
 // ==== Загружаем переменные окружения ====
@@ -28,6 +29,11 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 // Логирование всех HTTP-запросов
 app.use(logger);
 
+// ==================== STATIC FILES ====================
+
+// Раздача статических файлов (картинки статей)
+app.use('/uploads/articles', express.static(path.join(process.cwd(), 'uploads/articles')));
+
 // ==================== ROUTES ====================
 
 // ✅ Импорт маршрутов через главный index.js
@@ -38,7 +44,8 @@ import {
     categoryRoutes,
     commentRoutes,
     adminUserRoutes,
-    telegramRoutes // ✨ NEW
+    telegramRoutes,
+    imageRoutes // ✨ NEW
 } from './routes/index.js';
 
 // Базовые маршруты API
@@ -48,7 +55,8 @@ app.use('/api/articles', articleRoutes);
 app.use('/api/categories', categoryRoutes);
 app.use('/api/comments', commentRoutes);
 app.use('/api/admin/users', adminUserRoutes);
-app.use('/api/telegram', telegramRoutes); // ✨ NEW
+app.use('/api/telegram', telegramRoutes);
+app.use('/api/images', imageRoutes); // ✨ NEW
 
 // ==================== HEALTH CHECK ====================
 
@@ -78,7 +86,8 @@ app.get('/', (req, res) => {
                 articles: '/api/articles',
                 categories: '/api/categories',
                 comments: '/api/comments',
-                telegram: '/api/telegram' // ✨ NEW
+                telegram: '/api/telegram',
+                images: '/api/images' // ✨ NEW
             }
         }
     });

@@ -29,6 +29,13 @@ const articleSchema = new mongoose.Schema({
     required: [true, 'Содержимое статьи обязательно']
   },
 
+  // ✨ NEW: Обложка статьи
+  coverImage: {
+    type: String,
+    default: '',
+    trim: true
+  },
+
   category: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Category',
