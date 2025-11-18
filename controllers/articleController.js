@@ -231,23 +231,45 @@ class ArticleController {
 
     async getPublishedArticles(req, res) {
         try {
-            const { page, limit, sort } = req.query;
+            // ✅ ЧИТАЕМ ВСЕ ПАРАМЕТРЫ из query
+            const { page, limit, sortBy, category, search, days } = req.query;
 
+            console.log('🔵 [Controller] getPublishedArticles params:', {
+                page,
+                limit,
+                sortBy,
+                category,
+                search,
+                days
+            });
+
+            // ✅ ПЕРЕДАЕМ ВСЕ ПАРАМЕТРЫ в сервис
             const options = {
                 page: parseInt(page) || 1,
-                limit: parseInt(limit) || 10,
-                sort: sort || '-publishedAt'
+                limit: parseInt(limit) || 20,
+                sortBy: sortBy || 'createdAt',  // ✅ Используем sortBy вместо sort
+                category: category || null,      // ✅ Добавили category
+                search: search || null,          // ✅ Добавили search
+                days: days ? parseInt(days) : null  // ✅ Добавили days
             };
 
-            const articles = await articleService.getPublishedArticles(options);
+            const result = await articleService.getPublishedArticles(options);
+
+            console.log('✅ [Controller] Returning:', {
+                articles: result.articles.length,
+                total: result.total,
+                page: result.page,
+                totalPages: result.totalPages
+            });
 
             return res.status(200).json({
                 success: true,
                 message: 'Опубликованные статьи получены',
-                data: articles
+                data: result
             });
 
         } catch (error) {
+            console.error('❌ [Controller] getPublishedArticles error:', error);
             return res.status(400).json({
                 success: false,
                 message: error.message || 'Ошибка получения статей'
